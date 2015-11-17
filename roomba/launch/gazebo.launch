@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+
+<launch>
+
+    <arg name="gui"       default="true" />
+    <arg name="headless"  default="false" />
+    <arg name="rviz"      default="false" />
+    <arg name="rqt"       default="false" />
+
+
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+      <arg name="paused" value="false"/>
+      <arg name="use_sim_time" value="true"/>
+      <arg name="gui" value="$(arg gui)" />
+      <arg name="headless" value="$(arg headless)" />
+    </include>
+
+
+    <param name="robot_description" textfile="$(find roomba)/sdf/roomba.sdf" />
+    <node
+      name="spawn_model"
+      pkg="gazebo_ros"
+      type="spawn_model"
+      args="-sdf -param robot_description -model create"
+      output="screen">
+    </node>
+
+    <node pkg="rviz" type="rviz" name="rviz" if="$(arg rviz)"/>
+    <node pkg="rqt_gui" type="rqt_gui" name="rqt_gui" if="$(arg rqt)"/>
+
+</launch>
