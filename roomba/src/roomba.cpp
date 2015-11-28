@@ -3,20 +3,16 @@
 #include <time.h>
 #include <math.h>
 
+void copterCallback(const std_msgs::String::ConstPtr& msg);                    //Prints the data returned from the subscriber
+
+void copterCallback(const std_msgs::String::ConstPtr& msg)
+{
+  ROS_INFO("I heard: [%s]", msg->data.c_str());
+}
 
 int main(int argc, char **argv)
 {
-  /**
-   * The ros::init() function needs to see argc and argv so that it can perform
-   * any ROS arguments and name remapping that were provided at the command line.
-   * For programmatic remappings you can use a different version of init() which takes
-   * remappings directly, but for most command-line programs, passing argc and argv is
-   * the easiest way to do it.  The third argument to init() is the name of the node.
-   *
-   * You must call one of the versions of ros::init() before using any other
-   * part of the ROS system.
-   */
-  ros::init(argc, argv, "talker");
+  ros::init(argc, argv, "roomba");
 
   /**
    * NodeHandle is the main access point to communications with the ROS system.
@@ -43,6 +39,10 @@ int main(int argc, char **argv)
    * buffer up before throwing some away.
    */
   ros::Publisher pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 1);         //This is used to publish messages
+
+  ros::Subscriber sub = n.subscribe("copter", 1000, copterCallback);            //Subscribe to the copters messages
+  //copter is the name of the node being subscribed to
+
   ros::Rate loop_rate(10);                                                      //This determines the length of time between loop iterations
   geometry_msgs::Twist msg;                                                     //Twist object to publish messages
 
