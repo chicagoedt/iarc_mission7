@@ -66,7 +66,7 @@ int main(int argc, char **argv)
 
 		if (sim_time % 5 == 0 && sim_time != last_5){								//Change direction every 5 seconds
 			dir = (rand() % 41) - 20;												//Random number 0-20 (degrees in either direction)
-			//dir = (3.14159/180) * dir;												//Convert the degrees to radians
+			dir = (3.14159/180) * dir;												//Convert the degrees to radians
 			mov.angular.z = dir;													//Change the direction based on that number
 			last_5 = sim_time;
 			total_ang += dir;														//Add the angle turned to total_ang
