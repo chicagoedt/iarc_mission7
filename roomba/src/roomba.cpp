@@ -1,3 +1,7 @@
+/* I don't think the angle calculation works.
+ * The coordinates of the roomba are not accurate.
+ */
+
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -5,11 +9,19 @@
 #include <math.h>
 
 geometry_msgs::PoseStamped poseMsg;
+double x_dist = 0;																	//The distance traveled in the x direction
+double z_dist = 0;																	//The distance traveled in the z direction
 
 void copterCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
 	poseMsg = *msg;
 	ROS_INFO_STREAM("I heard: " << poseMsg.pose.position.x);
+}
+
+void calcCoords(double total_ang, double& dist){									//Calculates the coordinates of the roomba
+	z_dist += (dist) * sin(total_ang);
+	x_dist += (dist) * cos(total_ang);
+	dist = 0;
 }
 
 int main(int argc, char **argv)
@@ -30,14 +42,11 @@ int main(int argc, char **argv)
  	int last_20;																	//The last number on the 20 second interval
  	int last_5;																		//The last number on the 5 second interval
  	int last_1;																		//The last number of the 1 second interval
- 	int sim_time;																	//The time of the current simulation in seconds
 
+ 	double sim_time;																//The time of the current simulation in seconds
  	double dir;																		//The direction to change on the 5 second intervals
- 	double total_dist = 0;															//The total distance traveled so far
+ 	double dist = 0;																//The total distance traveled since the last X,Z calculation
  	double total_ang = 0;															//The total angle turned so far
-
- 	double x_dist = 0;																//The distance traveled in the x direction
- 	double z_dist = 0;																//The distance traveled in the z direction
 
  	while (ros::ok())
  	{
@@ -46,26 +55,26 @@ int main(int argc, char **argv)
 
 		sim_time = ros::Time::now().toSec();										//Set sim_time to the current time
 
-		if (last_1 != sim_time){													//If a second has passed
-			total_dist += mov.linear.x;												//Add the amount traveled in that second
+		dist += mov.linear.x * (sim_time - (int)sim_time);							//Add the amount traveled in that second
+
+		if (last_1 != (int)sim_time){												//If a second has passed
 			last_1 = sim_time;														//Reassign last_1 so you don't add it every iteration
-			z_dist += (mov.linear.x) * sin(total_ang);
-			x_dist += (mov.linear.x) * cos(total_ang);
+			calcCoords(total_ang, dist);
 		}
 
-		ROS_INFO_STREAM("Time is " << sim_time);									//Print the time to the console
-		//ROS_INFO_STREAM("Distance traveled is " << total_dist);					//Print the total distance traveled to the console
-		//ROS_INFO_STREAM("Angle turned is " << total_ang);							//Print the total angle turned
-		ROS_INFO_STREAM("X distance is " << x_dist);
-		ROS_INFO_STREAM("Z distance is " << z_dist);
+		//ROS_INFO_STREAM("Time is " << sim_time);									//Print the time to the console
+		//ROS_INFO_STREAM("Distance traveled is " << dist);							//Print the total angle turned
+		//ROS_INFO_STREAM("Coordinates are (" << x_dist << "," << z_dist << ")");
+		ROS_INFO_STREAM("Angle turned is " << total_ang);
 
-		if (sim_time % 20 == 0 && sim_time != last_20){								//Switch the direction every 20 seconds
+		if ((int)sim_time % 20 == 0 && (int)sim_time != last_20){					//Switch the direction every 20 seconds
 			forward = !forward;
 			last_20 = sim_time;
 		}
 
-		if (sim_time % 5 == 0 && sim_time != last_5){								//Change direction every 5 seconds
-			dir = (rand() % 41) - 20;												//Random number 0-20 (degrees in either direction)
+		if ((int)sim_time % 5 == 0 && (int)sim_time != last_5){						//Change direction every 5 seconds
+			//dir = (rand() % 41) - 20;												//Random number 0-20 (degrees in either direction)
+			dir = (rand() % 21);													//Random number 0-20 (in one direction)
 			dir = (3.14159/180) * dir;												//Convert the degrees to radians
 			mov.angular.z = dir;													//Change the direction based on that number
 			last_5 = sim_time;
