@@ -2,9 +2,12 @@
 
 <launch>
    
+  <arg name="gui" default="true"/>
+
   <!-- Start Gazebo with wg world running in (max) realtime -->
   <include file="$(find hector_gazebo_worlds)/launch/start.launch">
    <arg name="world" value="$(find quadcopter_test)/worlds/empty_world_test.world"/>
+   <arg name="gui" value="$(arg gui)"/>
   </include>
 
 
@@ -13,8 +16,14 @@
    <arg name="world" value="$(find gazebo_ros)/worlds/rolling_landscape_120m.world"/>
   </include>
 -->
+    <node 
+      pkg="tf" 
+      type="static_transform_publisher" 
+      name="world_to_greenline" 
+      args="0 10 0 0 0 0 world greenline 100" >
+    </node>
 
-  <node pkg="quadcopter_test" type="vector_test" name="vector_test"/>
+  <node pkg="quadcopter_test" type="vector_test" name="vector_test" output="screen"/>
 
   <!-- Spawn simulated quadrotor uav -->
   <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
