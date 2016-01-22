@@ -22,7 +22,7 @@ vector::vector():
 	publ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 5); // publishing the values to move the qc, currently publishes a velociy in a direction 
 	pubviz = nh.advertise<nav_msgs::Path>("pathing",5); //publish path for rviz	
 	subqcp = nh.subscribe("ground_truth_to_tf/pose", 5, &vector::callbackqcp, this); // subscribe to qc pose
-	subrp = nh.subscribe("current_roomba/pose", 5, &vector::callbackrp, this); // subscribe to roomba pose, revise after Harsh chooses ros topic
+	subrp = nh.subscribe("roomba/pose", 5, &vector::callbackrp, this); // subscribe to roomba pose, revise after Harsh chooses ros topic
 	ROS_INFO_STREAM("Initialized Topics!");
 }
 
