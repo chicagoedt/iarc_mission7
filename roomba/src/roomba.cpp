@@ -74,6 +74,8 @@ int main(int argc, char **argv)
 
  	ros::Publisher pubMov = n.advertise<geometry_msgs::Twist>("cmd_vel", 1);		//This is used to publish movement messages
 
+ 	ros::Publisher pubPos = n.advertise<geometry_msgs::PoseStamped>("roomba", 1);	//Publishes the coordinates of the roomba
+
  	ros::Subscriber sub = n.subscribe("copter", 1, copterCallback);					//Subscribe to the copters messages
 
  	ros::ServiceClient gms_c = 
@@ -84,6 +86,7 @@ int main(int argc, char **argv)
 
  	ros::Rate loop_rate(looprate);													//This determines the length of time between loop iterations
  	geometry_msgs::Twist mov;														//Twist object to publish messages
+ 	geometry_msgs::PoseStamped pos;													//PoseStamped object to publish coordinates
 
  	int last_20 = 0;																//The last number on the 20 second interval
  	int last_5 = 0;																	//The last number on the 5 second interval
@@ -125,7 +128,7 @@ int main(int argc, char **argv)
 
 		sim_time = ros::Time::now().toSec();										//Set sim_time to the current time
 
-		current_speed = speed / looprate;											//Move this much every iteration, so the movement is not jerky
+		current_speed = speed;														//Move this much every iteration, so the movement is not jerky
 		mov.linear.x = current_speed;
 
 		/*Move the roomba as it normally should on the 5 and 20 second intervals*/
@@ -186,7 +189,12 @@ int main(int argc, char **argv)
 
 		ROS_INFO_STREAM("Roomba coordinates are (" << x << "," << y << ")");
 		//ROS_INFO_STREAM("Angle turned is " << total_ang);
+
+		pos.pose.position.x = x;
+		pos.pose.position.y = y;
+
 		pubMov.publish(mov);
+		pubPos.publish(pos);
 
 		ros::spinOnce();
 		loop_rate.sleep();															//Wait until the next iteration
