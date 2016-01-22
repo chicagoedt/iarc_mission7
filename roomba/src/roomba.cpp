@@ -72,11 +72,11 @@ int main(int argc, char **argv)
 
  	ros::NodeHandle n;
 
- 	ros::Publisher pubMov = n.advertise<geometry_msgs::Twist>("cmd_vel", 1);		//This is used to publish movement messages
+ 	ros::Publisher pubMov = n.advertise<geometry_msgs::Twist>("roomba/cmd_vel", 1);		//This is used to publish movement messages
 
- 	ros::Publisher pubPos = n.advertise<geometry_msgs::PoseStamped>("roomba", 1);	//Publishes the coordinates of the roomba
+ 	ros::Publisher pubPos = n.advertise<geometry_msgs::PoseStamped>("roomba/pose", 1);	//Publishes the coordinates of the roomba
 
- 	ros::Subscriber sub = n.subscribe("copter", 1, copterCallback);					//Subscribe to the copters messages
+ 	ros::Subscriber sub = n.subscribe("ground_truth_to_tf/pose", 1, copterCallback);					//Subscribe to the copters messages
 
  	ros::ServiceClient gms_c = 
  		n.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");		//ModelState_Client

@@ -3,6 +3,7 @@
 <launch>
    
   <arg name="gui" default="true"/>
+  <arg name="roomba" default="true"/>
 
   <!-- Start Gazebo with wg world running in (max) realtime -->
   <include file="$(find hector_gazebo_worlds)/launch/start.launch">
@@ -30,6 +31,14 @@
     <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_hokuyo_utm30lx.gazebo.xacro"/> 
   </include>
   
+
+  <group if="$(arg roomba)">
+    <include file="$(find roomba)/launch/roomba-gazebo.launch" >
+      <arg name="launch_world" value="false"/> 
+    </include>
+  </group>
+
+
   <!-- Start rviz visualization with preset config -->
   <node pkg="rviz" type="rviz" name="rviz" args="-d $(find hector_quadrotor_demo)/rviz_cfg/outdoor_flight.rviz"/>
    
