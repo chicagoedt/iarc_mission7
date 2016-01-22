@@ -9,15 +9,16 @@
 /* qcp = quad copter position
    rp = roomba position
 */
-// What if I put the subscriber into the calculator function? 
+
 vector::vector():
 	nh(),
 	loop_rate(5)
 {
-	state = 0;
-	timecheck = 0;//begin = 0;//zero;//ros::Duration(0.0);
-	checker = 1;
-	initdec = 1;
+	state = 0; // Determines State of the roomba
+	timecheck = 0;
+	checker = 1; // checker to check rate of change of roomba. rotates b/w the if-else in callback.
+	initdec = 1; // initially declare feedbackMsgrp2 as 0. This should happen only once. hence global.
+	
 	publ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 5); // publishing the values to move the qc, currently publishes a velociy in a direction 
 	pubviz = nh.advertise<nav_msgs::Path>("pathing",5); //publish path for rviz	
 	subqcp = nh.subscribe("ground_truth_to_tf/pose", 5, &vector::callbackqcp, this); // subscribe to qc pose
@@ -45,13 +46,14 @@ void vector::callbackrp(const geometry_msgs::PoseStamped::ConstPtr& posrp)
 		initdec = 0;
 		
 	}	
+// Calculate RateOfChange in x and y component.
 	if(checker==1) // constantly alters new and old position.once 1:new & 2:old. Next 1:old & 2:new.
 	{
 		feedbackMsgrp1 = *posrp;
-		dxbydt = (feedbackMsgrp1.pose.position.x - feedbackMsgrp2.pose.position.x)/0.2;
-		dybydt = (feedbackMsgrp1.pose.position.y - feedbackMsgrp2.pose.position.y)/0.2;
-		//dxbydt = dxbydt/0.2; // dividing to get rate of change. 0.2 b/c the freq is 5. Hence time diff b/w two pos. is 0.2s.
-		//dybydt = dybydt/0.2;
+		dxbydt = (feedbackMsgrp1.pose.position.x - feedbackMsgrp2.pose.position.x);
+		dybydt = (feedbackMsgrp1.pose.position.y - feedbackMsgrp2.pose.position.y);
+		dxbydt = dxbydt/0.2; // dividing to get rate of change. 0.2 b/c the freq is 5. Hence time diff b/w two pos. is 0.2s.
+		dybydt = dybydt/0.2;
 		checker = 0;
 		
 	}
@@ -71,47 +73,52 @@ void vector::callbackrp(const geometry_msgs::PoseStamped::ConstPtr& posrp)
 void vector::calculate()
 {
 		
-		int i = 0;
-		int npts = 20; //no. of pts for rviz path
-		int timerun = 1; //no. of seconds to reach roomba once above it.		
+		int i = 0; // counter for rviz points.
+		int timerun = 1; //Seconds. no. of seconds to reach roomba once above it. 
+// x1, y1, z1 are qc to roomba vectors.		
 		float x1 = 0;
 		float y1 = 0;
 		float z1 = 0;
-		float z2 = 0;
+		float z2 = 0; // height it'd reach when going down.
 		float vmag = 0;
 		float vmag2 = 0;
 		float constvelsq = 0; // constant velocity squared for the velocity you want it to go in
+// unit vectors of x1, y1, z1, x2, y2, z2.
 		float unitx1 = 0;
 		float unity1 = 0;
 		float unitz1 = 0;
 		float unitx2 = 0;
 		float unity2 = 0;
 		float unitz2 = 0;
-		float c = 0;
-		float d = 0;
+		float c = 0; // constant for calculation
 		float disp = 0; // vector variables to point direction
-		float disp2 = 0;
-		float dpts = 0;
+// rviz values
+		int npts = 20; //no. of pts for rviz path
+		float dpts = 0;  // distance b/w pts
 		float rx = 0;
 		float ry = 0;
-		float rz = 0; // distance b/w 2 pts in rviz path, rviz coordinates
+		float rz = 0; //  rviz coordinates
+		
 		x1 = feedbackMsgrp.pose.position.x - feedbackMsgqcp.pose.position.x; // calculating x,y,z values
 		y1 = feedbackMsgrp.pose.position.y - feedbackMsgqcp.pose.position.y;				
 		z1 = (feedbackMsgrp.pose.position.z+1) - feedbackMsgqcp.pose.position.z; // 1m above rp
-		z2 = (feedbackMsgrp.pose.position.z+0.3) - feedbackMsgqcp.pose.position.z;
 		vmag = sqrt( x1*x1 + y1*y1 + z1*z1); // magnitude of qc velocity
-		vmag2 = sqrt( x1*x1 + y1*y1 + z2*z2);
 		unitx1 = x1/vmag;
 		unity1 = y1/vmag;
 		unitz1 = z1/vmag;
+		
+// For State 1.
+		z2 = (feedbackMsgrp.pose.position.z+0.3) - feedbackMsgqcp.pose.position.z;
+		vmag2 = sqrt( x1*x1 + y1*y1 + z2*z2);	
 		unitx2 = x1/vmag2; //  only z value changes in case 2
 		unity2 = y1/vmag2;
 		unitz2 = z2/vmag2;
+		
 		disp = sqrt( x1*x1 + y1*y1 + z1*z1 );
-		disp2 = sqrt( x1*x1 + y1*y1 + z2*z2 );
 		
 		
-		dpts=disp/npts; //dpts=disp/nps;
+		
+		dpts=disp/npts; 
 		nav_msgs::Path viz;
 		viz.poses.resize(npts);
 	
@@ -119,7 +126,7 @@ void vector::calculate()
 
 		geometry_msgs::PoseStamped path_point;
 
-		for(i=0; i<npts; i++)
+		for(i=0; i<npts; i++) // Determines all the pts to plot the expected path.
 		{
 			rx = (i+1)*x1/npts;
 			ry = (i+1)*y1/npts;
@@ -137,7 +144,9 @@ void vector::calculate()
 
 		viz.header.frame_id = "world";
 		viz.header.stamp = ros::Time::now();
-		if(state == 0)
+
+
+		if(state == 0) // Init State. Till it goes above roomba.
 		{
 			if(disp>4)
 			{
@@ -153,49 +162,34 @@ void vector::calculate()
 			}
 			else
 			{
-				//constvelsq = 0;
-				state = 1;
+				state = 1;	
 			}
 			c = sqrt(constvelsq/((unitx1*unitx1)+(unity1*unity1)+(unitz1*unitz1)) );
 			msg.linear.x = c*unitx1;
 			msg.linear.y = c*unity1;
 			msg.linear.z = c*unitz1;
 		}
-		else if(state == 1)
+
+		else if(state == 1) // Goes down to roomba.
 		{
 			goto setting;
 			back:
 			ros::Duration seconds(1);
-			if(ros::Time::now()-begin<seconds) // always sticks to this since begin gets redefined every time.
+			if(ros::Time::now()-begin<seconds) // Runs for 1 second
 			{
-				//constvelsq = 0.5; *
+				
 			}
 			else
 			{
-				//constvelsq = 0; // check without this
 				state = 2;
 			}
-			//d = sqrt( constvelsq/((unitx2*unitx2)+(unity2*unity2)+(unitz2*unitz2)) ); *
-			//msg.linear.x = d*unitx2; *
-			//msg.linear.y = d*unity2; *
-			//msg.linear.z = d*unitz2; *
-			msg.linear.x = x2;
+
+			msg.linear.x = x2; // Takes the predicted path for 1 second.
 			msg.linear.y = y2;
 			msg.linear.z = z2;
-				
-			/*while(ros::Time::now()-begin<seconds) //stays for 1 second but doesnt go down.
-			{
-				ros::spinOnce();
-				d = sqrt( 0.375/((unitx2*unitx2)+(unity2*unity2)+(unitz2*unitz2)) );
-				msg.linear.x = d*unitx2;
-				msg.linear.y = d*unity2;
-				msg.linear.z = d*unitz2;
-				publ.publish(msg);  // needs to publish else it'll stay in loop and not publish anything.
-				pubviz.publish(viz);
-			}
-			state = 2; */
+
 		}
-		else if( state == 2)
+		else if( state == 2) // Goes back up (re-orientation).
 		{
 			if(disp>0.2)
 			{			
@@ -204,32 +198,35 @@ void vector::calculate()
 			
 			else  
 			{
-				constvelsq = 0;
+				constvelsq = 0.25;
 				state = 3;
 			}
 			c = sqrt( constvelsq/((unitx1*unitx1)+(unity1*unity1)+(unitz1*unitz1)) );
 			msg.linear.x = c*unitx1;
 			msg.linear.y = c*unity1;
 			msg.linear.z = c*unitz1;
+	
+			std::cout << "Velocity IN 2: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
+
 		}
 		else
 		{
 			state = 0;
-			timecheck = 0;//begin = 0;//zero;//ros::Duration(0.0);
+			timecheck = 0;
+			std::cout << "Velocity IN 3: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
 		}			
-		ROS_INFO_STREAM("Distance b/w qc and rp:"<<vmag2);
-		ROS_INFO_STREAM("Stage:"<<state);
+
 		std::cout << "Distance b/w qc and rp:" <<vmag2<< std::endl;
 		std::cout << "Stage:"<<state<< std::endl;
-		std::cout <<x2<<y2<<z2<< std::endl;
-		std::cout << "Velocity: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl	;
-		std::cout << "Vel Mag:"<<sqrt(msg.linear.x*msg.linear.x + msg.linear.y*msg.linear.y + msg.linear.z*msg.linear.z)<<std::endl;	
+		//std::cout <<x2<<y2<<z2<< std::endl;
+		//std::cout << "Velocity: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
+		//std::cout << "Vel Mag:"<<sqrt(msg.linear.x*msg.linear.x + msg.linear.y*msg.linear.y + msg.linear.z*msg.linear.z)<<std::endl;	
 		publ.publish(msg);
 		pubviz.publish(viz);
 		
-		if(state == 5)
+		if(state == 5) // Inaccessible. Only for goto statement.
 		{	
-			setting: if(timecheck == 0)//zero)//ros::Duration(0.0))
+			setting: if(timecheck == 0)
 				 {
 					 x2 = (feedbackMsgrp.pose.position.x + dxbydt*timerun) - feedbackMsgqcp.pose.position.x;
 					 y2 = (feedbackMsgrp.pose.position.y + dybydt*timerun) - feedbackMsgqcp.pose.position.y;
@@ -239,25 +236,6 @@ void vector::calculate()
 			 goto back;	
 		}		
 	
-
-	
-	/*if(vmag<RVEL) // if vmag is less then roomba velocity !! Find roomba vel (say rvel = 3)
-	{
-		while(vmag<RVEL)
-		{
-			x1 = x1*1.5;
-			y1 = y1*1.5;
-			z1 = z1*1.5;
-			vmag = sqrt( x1*x1 + y1*y1 + z1*z1);
-		}
-	}
-	msg.linear.x = x1;
-	msg.linear.y = y1;
-	msg.linear.z = z1;
-	publ.publish(msg);
-	ros::spinOnce();
-        loop_rate.sleep();
-	*/
 }
 
 void vector::run()
