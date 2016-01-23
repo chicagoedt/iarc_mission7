@@ -44,7 +44,7 @@ bool checkCopter(double copter_x, double copter_y, double copter_z,
 					double x, double y, double z){
 	//The radius that the copter has to be in to tap the roomba
 	double radius = 0.05;
-	double roomba_height = z + radius;
+	double roomba_height = z;
 
 	//The x coordinates that the copter has to be in
 	double bottom_x = x - radius;
