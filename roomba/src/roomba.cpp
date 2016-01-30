@@ -41,7 +41,8 @@ void simplifyAngle(double& total_ang){												//Simplifies a radian
 bool checkCopter(double copter_x, double copter_y, double copter_z, 
 					double x, double y, double z){
 	double radius = 0.05;															//The radius that the copter has to be within to tap the roomba
-	double roomba_height = z + radius;												//The height of the roomba (meters)
+	double roomba_height = 0.3;
+													//The height of the roomba (meters)
 
 	double bottom_x = x - radius;													//The bottom limit of the x zone
 	double top_x = x + radius;														//The top limit of the x zone
@@ -67,7 +68,7 @@ int main(int argc, char **argv)
 {
 	srand(1);																		//Seed for the random number generator
 
-	int looprate = 10;
+	int looprate = 5;
  	ros::init(argc, argv, "roomba");
 
  	ros::NodeHandle n;
@@ -86,7 +87,10 @@ int main(int argc, char **argv)
 
  	ros::Rate loop_rate(looprate);													//This determines the length of time between loop iterations
  	geometry_msgs::Twist mov;														//Twist object to publish messages
- 	geometry_msgs::PoseStamped pos;													//PoseStamped object to publish coordinates
+ 	geometry_msgs::PoseStamped pos;	
+
+ 	pos.header.stamp = ros::Time::now();
+ 	pos.header.frame_id = "roomba_odom";												//PoseStamped object to publish coordinates
 
  	int last_20 = 0;																//The last number on the 20 second interval
  	int last_5 = 0;																	//The last number on the 5 second interval
@@ -95,7 +99,7 @@ int main(int argc, char **argv)
  	double sim_time;																//The time of the current simulation in seconds
 
  	double speed = 0.33;
- 	speed = 3;
+ 	//speed = 3;
  	double current_speed = 0;														//Will be used to move a certain amount every iteration of the loop
 
  	double x = 0;																	//The x coordinate of the roomba
@@ -120,6 +124,8 @@ int main(int argc, char **argv)
 
  	while (ros::ok())
  	{
+ 		pos.header.stamp = ros::Time::now();
+
  		gms_c.call(model);															//Update the coordinates in the model
 
  		x = model.response.pose.position.x;											//Set the x variable
@@ -193,6 +199,17 @@ int main(int argc, char **argv)
 		pos.pose.position.x = x;
 		pos.pose.position.y = y;
 
+		pos.pose.orientation.x = model.response.pose.orientation.x;	
+		pos.pose.orientation.y = model.response.pose.orientation.y;
+		pos.pose.orientation.z = model.response.pose.orientation.z;
+		pos.pose.orientation.w = model.response.pose.orientation.w;
+
+		if(mov.angular.z != 0)
+		{
+			mov.linear.x = 0;
+		}
+
+		//std::cout<<"Last Touch:"<<last_touch<<std::endl;
 		pubMov.publish(mov);
 		pubPos.publish(pos);
 
