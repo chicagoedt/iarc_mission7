@@ -33,6 +33,11 @@ add_executable(vector_test src/vector_calc.cpp src/vector_main.cpp)
 add_dependencies(vector_test quadcopter_test_generate_messages_cpp)
 target_link_libraries(vector_test ${catkin_LIBRARIES})
 
+add_executable(Tap_Decisions src/Tap_Decision.cpp src/Tap_main.cpp)
+add_dependencies(Tap_Decisions quadcopter_test_generate_messages_cpp)
+target_link_libraries(Tap_Decisions ${catkin_LIBRARIES})
+
+
 
 
 #add_executable(main_test src/flight_test.cpp)
