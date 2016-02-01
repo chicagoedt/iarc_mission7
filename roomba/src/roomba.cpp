@@ -8,6 +8,9 @@
  * This is most likely because of it uses the wheels to turn, it doesn't just turn the base.
  * Through trial and error, I found that multiplying by 1.76 and turning for a whole second turns the correct amount.
  * The roombas in the competition videos do turn slower though, I don't have any details on it though.
+ *
+ * The radius may need to be tweaked a bit. I have it set to one tenth of the xy radius, but that may not be right.
+ * If anything, I feel like it's too much.
  */
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
@@ -19,11 +22,13 @@
 geometry_msgs::PoseStamped poseMsg;
 geometry_msgs::PoseStamped poseMsgRoomba;
 
+//To get the coordinates of the copter
 void copterCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
 	poseMsg = *msg;
 }
 
+//To get the coordinates of the roomba
 void roombaCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
 	poseMsgRoomba = *msg;
 }
@@ -49,6 +54,8 @@ bool checkCopter(double copter_x, double copter_y, double copter_z,
 					double x, double y, double z){
 	//The radius that the copter has to be in to tap the roomba
 	double radius = 0.05;
+	//This uses one tenth of the radius. If it seems to be too much, raise the "10" below.
+	//The radius does need to be present otherwise it may not detect the copter every time.
 	double roomba_height = z + (radius / 10);
 
 
@@ -264,6 +271,7 @@ int main(int argc, char **argv)
 			mov.angular.z += (ang_touch * 1.76);
 		}
 
+		//Simplify the angle, just for readibility
 		simplifyAngle(total_ang);
 
 		//get the coordinates from the other roomba
