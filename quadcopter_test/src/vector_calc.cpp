@@ -140,7 +140,7 @@ void vector::calculate()
 		unitz1 = z1/vmag;
 		
 // For State 1.
-		z2 = (feedbackMsgrp.pose.position.z+0.17) - feedbackMsgqcp.pose.position.z;
+		z2 = (feedbackMsgrp.pose.position.z+0.09) - feedbackMsgqcp.pose.position.z;
 		vmag2 = sqrt( x1*x1 + y1*y1 + z2*z2);	
 		unitx2 = x1/vmag2; //  only z value changes in case 2
 		unity2 = y1/vmag2;
@@ -259,8 +259,7 @@ void vector::calculate()
 		std::cout << "dx/dt:"<<dxbydt<< std::endl;
 		std::cout << "dy/dt:"<<dybydt<< std::endl;
 		std::cout << "Roomba(frm QC):"<<sqrt(dxbydt*dxbydt + dybydt*dybydt)<<std::endl;
-		std::cout << atan(1) << std::endl << std::endl;
-		std::cout << "Tap it:  "<< Tap_it<< std::endl;
+		std::cout << "QC coordinates in QC: "<<"("<<feedbackMsgqcp.pose.position.x<<","<< feedbackMsgqcp.pose.position.y<<","<< feedbackMsgqcp.pose.position.z<<")"<< std::endl;
 		//std::cout <<x2<<y2<<z2<< std::endl;
 		//std::cout << "Velocity: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
 		std::cout << "Vel Mag:"<<sqrt(msg.linear.x*msg.linear.x + msg.linear.y*msg.linear.y + msg.linear.z*msg.linear.z)<<std::endl<<std::endl;	

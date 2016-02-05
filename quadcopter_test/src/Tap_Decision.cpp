@@ -76,7 +76,6 @@ void Decision::Calculate()
 		if(dybydt<0)
 		{
 			canTap.data = true;
-			std::cout <<"RAAAAAAAAAAAAAAAN";
 		}
 		else if((atan(dybydt/dxbydt)>=-0.785) && (atan(dybydt/dxbydt)<=0.524))
 		{
@@ -88,8 +87,6 @@ void Decision::Calculate()
 		}
 		timer = 1;
 	//}
-	std::cout << "\ndybydt in Decision" << dybydt << "\n"; 
-	std::cout <<"\ncanTap in Decision:" << canTap << "\n";
 	publ.publish(canTap);
 }
 

@@ -2,7 +2,7 @@
 
 <launch>
    
-  <arg name="gui" default="true"/>
+  <arg name="gui" default="false"/>
   <arg name="roomba" default="true"/>
 
   <!-- Start Gazebo with wg world running in (max) realtime -->
@@ -59,6 +59,8 @@
 -->
 
   <!-- Start rviz visualization with preset config -->
+  
   <node pkg="rviz" type="rviz" name="rviz" args="-d $(find hector_quadrotor_demo)/rviz_cfg/outdoor_flight.rviz"/>
+ 
    
 </launch>
