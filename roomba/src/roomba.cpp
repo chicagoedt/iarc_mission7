@@ -16,8 +16,6 @@
 #include <time.h>
 #include <math.h>
 
-using namespace std;
-
 geometry_msgs::PoseStamped poseMsg;
 geometry_msgs::PoseStamped poseMsgRoomba;
 
@@ -53,6 +51,7 @@ bool checkCopter(double copter_x, double copter_y, double copter_z,
 	double radius = 0.05;
 	double roomba_height = z + (radius / 10);
 
+
 	//The x coordinates that the copter has to be in
 	double bottom_x = x - radius;
 	double top_x = x + radius;
@@ -81,7 +80,7 @@ int main(int argc, char **argv)
 	//Seed for the random number generator
 	srand(1);
 
-	int looprate = 10;
+	int looprate = 5;
  	ros::init(argc, argv, "roomba");
 
  	ros::NodeHandle n;
@@ -105,12 +104,14 @@ int main(int argc, char **argv)
  	gazebo_msgs::GetModelState model;
  	model.request.model_name = "create";
 
-	//Length of time between loops
  	ros::Rate loop_rate(looprate);
-	//Twist object for the movement
+	//twist object to publish messages
  	geometry_msgs::Twist mov;
-	//Object to publish coordinates
- 	geometry_msgs::PoseStamped pos;
+ 	geometry_msgs::PoseStamped pos;	
+
+ 	pos.header.stamp = ros::Time::now();
+ 	pos.header.frame_id = "roomba_odom";
+
 
 	//The last number on the 20 second interval
  	int last_20 = 0;
@@ -123,17 +124,21 @@ int main(int argc, char **argv)
  	double sim_time;
 
  	double speed = 0.33;
- 	speed = 3;
 
-	//Coordinates of the roomba
+ 	//speed = 3;
+ 	double current_speed = 0;
+
+	//coordinates of the roomba
  	double x = 0;
  	double y = 0;
  	double z = 0;
 	
-	//The coordinates of the copter
- 	double copter_x;											
+	//coordinates of the copter
+ 	double copter_x;
  	double copter_y;
  	double copter_z;
+
+
 
 	//the coordinates of the other roomba
 	double roomba_x;
@@ -164,8 +169,12 @@ int main(int argc, char **argv)
 
  	while (ros::ok())
  	{
-		//Update the coordinates of the roomba
+ 		pos.header.stamp = ros::Time::now();
+
+		//update the coordinates in the model
  		gms_c.call(model);
+		//Update the coordinates of the roomba
+ 
 
 		//Set all of the coordinate variables
  		x = model.response.pose.position.x;
@@ -271,7 +280,19 @@ int main(int argc, char **argv)
 		pos.pose.position.x = x;
 		pos.pose.position.y = y;
 
-		//Publish everything
+
+		pos.pose.orientation.x = model.response.pose.orientation.x;	
+		pos.pose.orientation.y = model.response.pose.orientation.y;
+		pos.pose.orientation.z = model.response.pose.orientation.z;
+		pos.pose.orientation.w = model.response.pose.orientation.w;
+
+		if(mov.angular.z != 0)
+		{
+			mov.linear.x = 0;
+		}
+
+		//std::cout<<"Last Touch:"<<last_touch<<std::endl;
+
 		pubMov.publish(mov);
 		pubPos.publish(pos);
 

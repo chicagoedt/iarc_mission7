@@ -29,7 +29,9 @@
       </link>
       <static>true</static>
     </model>
-
+    <include>
+      <uri>model://create</uri>
+    </include>
 <!--
     <model name="120m_landscape_smooth_tri">
       <link name="120m_landscape_smooth_tri_link">

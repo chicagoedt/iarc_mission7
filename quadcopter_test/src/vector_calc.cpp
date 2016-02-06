@@ -3,6 +3,9 @@
 #include "vector_calc.h"
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Path.h>
+#include <math.h>
+#include <std_msgs/Bool.h>
+
 #define RVEL 3
 /* Consider vector (x,y,z) to be the dirn to go, publish twist as (x,y,z). This will make the qc go in the particular dirn. As for it to stop we check if the distance b/w it's current position and the original position is equal to the distance b/w the roomba and it's original position. or stop when it is a certain distance away. (using shortest distance formula).
 */
@@ -19,15 +22,44 @@ vector::vector():
 	checker = 1; // checker to check rate of change of roomba. rotates b/w the if-else in callback.
 	initdec = 1; // initially declare feedbackMsgrp2 as 0. This should happen only once. hence global.
 	
-	publ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 5); // publishing the values to move the qc, currently publishes a velociy in a direction 
-	pubviz = nh.advertise<nav_msgs::Path>("pathing",5); //publish path for rviz	
-	subqcp = nh.subscribe("ground_truth_to_tf/pose", 5, &vector::callbackqcp, this); // subscribe to qc pose
-	subrp = nh.subscribe("roomba/pose", 5, &vector::callbackrp, this); // subscribe to roomba pose, revise after Harsh chooses ros topic
+	publ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1); // publishing the values to move the qc, currently publishes a velociy in a direction 
+	pubviz = nh.advertise<nav_msgs::Path>("pathing",1); //publish path for rviz	
+	subqcp = nh.subscribe("ground_truth_to_tf/pose", 1, &vector::callbackqcp, this); // subscribe to qc pose
+	subrp = nh.subscribe("roomba/pose", 1, &vector::callbackrp, this); // subscribe to roomba pose, revise after Harsh chooses ros topic
+	subtap = nh.subscribe("Tap", 1, &vector::callbacktap, this);
 	ROS_INFO_STREAM("Initialized Topics!");
+	Init();
 }
 
 vector::~vector()
 {
+}
+
+void vector::callbacktap(const std_msgs::Bool::ConstPtr& Tap_Sub)
+{
+	Tap_it = *Tap_Sub;
+}
+
+
+
+
+
+void vector::Init()
+{
+	msg.linear.x = 0;
+	msg.linear.y = 0;
+	msg.linear.z = 1;
+	publ.publish(msg);
+	ros::Time init;
+	init = ros::Time::now();
+	while(ros::Time::now()-init<ros::Duration(1.5))
+	{
+		publ.publish(msg);
+		//std::cout<<std::endl<<ros::Time::now();
+		ros::spinOnce();//std::cout<<"Ran!!";
+	}
+	//std::cout<<std::endl<<init;
+	//ros::Duration(10.0).sleep();
 }
 
 void vector::callbackqcp(const geometry_msgs::PoseStamped::ConstPtr& posqcp)
@@ -72,32 +104,32 @@ void vector::callbackrp(const geometry_msgs::PoseStamped::ConstPtr& posrp)
 
 void vector::calculate()
 {
-		
-		int i = 0; // counter for rviz points.
-		int timerun = 1; //Seconds. no. of seconds to reach roomba once above it. 
+		// CHANGE!!!! Put in class!!
+		i = 0; // counter for rviz points.
+		timerun = 1; //Seconds. no. of seconds to reach roomba once above it. 
 // x1, y1, z1 are qc to roomba vectors.		
-		float x1 = 0;
-		float y1 = 0;
-		float z1 = 0;
-		float z2 = 0; // height it'd reach when going down.
-		float vmag = 0;
-		float vmag2 = 0;
-		float constvelsq = 0; // constant velocity squared for the velocity you want it to go in
+		x1 = 0;
+		y1 = 0;
+		z1 = 0;
+		z2 = 0; // height it'd reach when going down.
+		vmag = 0;
+		vmag2 = 0;
+		constvelsq = 0; // constant velocity squared for the velocity you want it to go in
 // unit vectors of x1, y1, z1, x2, y2, z2.
-		float unitx1 = 0;
-		float unity1 = 0;
-		float unitz1 = 0;
-		float unitx2 = 0;
-		float unity2 = 0;
-		float unitz2 = 0;
-		float c = 0; // constant for calculation
-		float disp = 0; // vector variables to point direction
+		unitx1 = 0;
+		unity1 = 0;
+		unitz1 = 0;
+		unitx2 = 0;
+		unity2 = 0;
+		unitz2 = 0;
+		c = 0; // constant for calculation
+		disp = 0; // vector variables to point direction
 // rviz values
-		int npts = 20; //no. of pts for rviz path
-		float dpts = 0;  // distance b/w pts
-		float rx = 0;
-		float ry = 0;
-		float rz = 0; //  rviz coordinates
+		npts = 20; //no. of pts for rviz path
+		dpts = 0;  // distance b/w pts
+		rx = 0;
+		ry = 0;
+		rz = 0; //  rviz coordinates
 		
 		x1 = feedbackMsgrp.pose.position.x - feedbackMsgqcp.pose.position.x; // calculating x,y,z values
 		y1 = feedbackMsgrp.pose.position.y - feedbackMsgqcp.pose.position.y;				
@@ -108,7 +140,7 @@ void vector::calculate()
 		unitz1 = z1/vmag;
 		
 // For State 1.
-		z2 = (feedbackMsgrp.pose.position.z+0.3) - feedbackMsgqcp.pose.position.z;
+		z2 = (feedbackMsgrp.pose.position.z+0.17) - feedbackMsgqcp.pose.position.z;
 		vmag2 = sqrt( x1*x1 + y1*y1 + z2*z2);	
 		unitx2 = x1/vmag2; //  only z value changes in case 2
 		unity2 = y1/vmag2;
@@ -175,10 +207,16 @@ void vector::calculate()
 			goto setting;
 			back:
 			ros::Duration seconds(1);
-			if(ros::Time::now()-begin<seconds) // Runs for 1 second
-			{
-				
-			}
+			if(Tap_it.data == true && ros::Time::now()-begin<seconds)
+			{ 
+				//if(ros::Time::now()-begin<seconds) // Runs for 1 second		
+				//{
+					
+				//}
+				//msg.linear.x = x2; // Takes the predicted path for 1 second.
+				//msg.linear.y = y2;
+				//msg.linear.z = z2;
+			}	
 			else
 			{
 				state = 2;
@@ -218,9 +256,14 @@ void vector::calculate()
 
 		std::cout << "Distance b/w qc and rp:" <<vmag2<< std::endl;
 		std::cout << "Stage:"<<state<< std::endl;
+		std::cout << "dx/dt:"<<dxbydt<< std::endl;
+		std::cout << "dy/dt:"<<dybydt<< std::endl;
+		std::cout << "Roomba(frm QC):"<<sqrt(dxbydt*dxbydt + dybydt*dybydt)<<std::endl;
+		std::cout << atan(1) << std::endl << std::endl;
+		std::cout << "Tap it:  "<< Tap_it<< std::endl;
 		//std::cout <<x2<<y2<<z2<< std::endl;
 		//std::cout << "Velocity: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
-		//std::cout << "Vel Mag:"<<sqrt(msg.linear.x*msg.linear.x + msg.linear.y*msg.linear.y + msg.linear.z*msg.linear.z)<<std::endl;	
+		std::cout << "Vel Mag:"<<sqrt(msg.linear.x*msg.linear.x + msg.linear.y*msg.linear.y + msg.linear.z*msg.linear.z)<<std::endl<<std::endl;	
 		publ.publish(msg);
 		pubviz.publish(viz);
 		
