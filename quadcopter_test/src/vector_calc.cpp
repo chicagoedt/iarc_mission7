@@ -15,7 +15,7 @@
 
 vector::vector():
 	nh(),
-	loop_rate(5)
+	loop_rate(20)
 {
 	state = 0; // Determines State of the roomba
 	timecheck = 0;
@@ -84,8 +84,8 @@ void vector::callbackrp(const geometry_msgs::PoseStamped::ConstPtr& posrp)
 		feedbackMsgrp1 = *posrp;
 		dxbydt = (feedbackMsgrp1.pose.position.x - feedbackMsgrp2.pose.position.x);
 		dybydt = (feedbackMsgrp1.pose.position.y - feedbackMsgrp2.pose.position.y);
-		dxbydt = dxbydt/0.2; // dividing to get rate of change. 0.2 b/c the freq is 5. Hence time diff b/w two pos. is 0.2s.
-		dybydt = dybydt/0.2;
+		dxbydt = dxbydt/0.05; // dividing to get rate of change. 0.2 b/c the freq is 5. Hence time diff b/w two pos. is 0.2s.
+		dybydt = dybydt/0.05;
 		checker = 0;
 		
 	}
@@ -94,8 +94,8 @@ void vector::callbackrp(const geometry_msgs::PoseStamped::ConstPtr& posrp)
 		feedbackMsgrp2 = *posrp;
 		dxbydt = feedbackMsgrp2.pose.position.x - feedbackMsgrp1.pose.position.x;
 		dybydt = feedbackMsgrp2.pose.position.y - feedbackMsgrp1.pose.position.y;
-		dxbydt = dxbydt/0.2; // dividing to get rate of change. 0.2 b/c the freq is 5. Hence time diff b/w two pos. is 0.2s.
-		dybydt = dybydt/0.2;
+		dxbydt = dxbydt/0.05; // dividing to get rate of change. 0.2 b/c the freq is 5. Hence time diff b/w two pos. is 0.2s.
+		dybydt = dybydt/0.05;
 		checker = 1;
 		
 	}
@@ -111,7 +111,7 @@ void vector::calculate()
 		x1 = 0;
 		y1 = 0;
 		z1 = 0;
-		z2 = 0; // height it'd reach when going down.
+		//z2 = 0; // height it'd reach when going down.
 		vmag = 0;
 		vmag2 = 0;
 		constvelsq = 0; // constant velocity squared for the velocity you want it to go in
@@ -140,7 +140,7 @@ void vector::calculate()
 		unitz1 = z1/vmag;
 		
 // For State 1.
-		z2 = (feedbackMsgrp.pose.position.z+0.09) - feedbackMsgqcp.pose.position.z;
+		//z2 = (feedbackMsgrp.pose.position.z+0.09) - feedbackMsgqcp.pose.position.z;
 		vmag2 = sqrt( x1*x1 + y1*y1 + z2*z2);	
 		unitx2 = x1/vmag2; //  only z value changes in case 2
 		unity2 = y1/vmag2;
@@ -206,10 +206,10 @@ void vector::calculate()
 		{
 			goto setting;
 			back:
-			ros::Duration seconds(1);
+			ros::Duration seconds(1.0);
 			if(Tap_it.data == true && ros::Time::now()-begin<seconds)
 			{ 
-				//if(ros::Time::now()-begin<seconds) // Runs for 1 second		
+				std::cout<<"TIME:"<<ros::Time::now()-begin<<std::endl;//if(ros::Time::now()-begin<seconds) // Runs for 1 second		
 				//{
 					
 				//}
@@ -244,24 +244,25 @@ void vector::calculate()
 			msg.linear.y = c*unity1;
 			msg.linear.z = c*unitz1;
 	
-			std::cout << "Velocity IN 2: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
+			//std::cout << "Velocity IN 2: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
 
 		}
 		else
 		{
 			state = 0;
 			timecheck = 0;
-			std::cout << "Velocity IN 3: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
+			//std::cout << "Velocity IN 3: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
 		}			
 
-		std::cout << "Distance b/w qc and rp:" <<vmag2<< std::endl;
+		//std::cout << "Distance b/w qc and rp:" <<vmag2<< std::endl;
 		std::cout << "Stage:"<<state<< std::endl;
-		std::cout << "dx/dt:"<<dxbydt<< std::endl;
-		std::cout << "dy/dt:"<<dybydt<< std::endl;
-		std::cout << "Roomba(frm QC):"<<sqrt(dxbydt*dxbydt + dybydt*dybydt)<<std::endl;
+		//std::cout << "dx/dt:"<<dxbydt<< std::endl;
+		//std::cout << "dy/dt:"<<dybydt<< std::endl;
+		//std::cout << "Roomba(frm QC):"<<sqrt(dxbydt*dxbydt + dybydt*dybydt)<<std::endl;
 		std::cout << "QC coordinates in QC: "<<"("<<feedbackMsgqcp.pose.position.x<<","<< feedbackMsgqcp.pose.position.y<<","<< feedbackMsgqcp.pose.position.z<<")"<< std::endl;
+		std::cout << "Roomba in QC: ("<<feedbackMsgrp.pose.position.x<<","<<feedbackMsgrp.pose.position.y<<","<<feedbackMsgrp.pose.position.z<<")"<<std::endl;
 		//std::cout <<x2<<y2<<z2<< std::endl;
-		//std::cout << "Velocity: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
+		std::cout << "Velocity: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
 		std::cout << "Vel Mag:"<<sqrt(msg.linear.x*msg.linear.x + msg.linear.y*msg.linear.y + msg.linear.z*msg.linear.z)<<std::endl<<std::endl;	
 		publ.publish(msg);
 		pubviz.publish(viz);
@@ -272,6 +273,10 @@ void vector::calculate()
 				 {
 					 x2 = (feedbackMsgrp.pose.position.x + dxbydt*timerun) - feedbackMsgqcp.pose.position.x;
 					 y2 = (feedbackMsgrp.pose.position.y + dybydt*timerun) - feedbackMsgqcp.pose.position.y;
+					 // 0.182 is the length between copter centre of mass and the tip of its legs (base)
+					 
+					 z2 = (0.0) - (feedbackMsgqcp.pose.position.z - 0.182);
+					 
 					 begin = ros::Time::now();
 					 timecheck = 1;
 				 }

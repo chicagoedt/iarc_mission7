@@ -18,6 +18,9 @@
 #include <gazebo_msgs/GetModelState.h>
 #include <time.h>
 #include <math.h>
+#include <visualization_msgs/Marker.h>
+
+ double Radius = 0.15;
 
 geometry_msgs::PoseStamped poseMsg;
 geometry_msgs::PoseStamped poseMsgRoomba;
@@ -51,30 +54,52 @@ void simplifyAngle(double& total_ang){
 }
 
 bool checkCopter(double copter_x, double copter_y, double copter_z, 
-					double x, double y, double z){
+					double x, double y, double z, char &colour){
 	//The radius that the copter has to be in to tap the roomba
-	double radius = 0.05;
+	
+	// Initially red. For when the QC is far away.
+	colour = 'r';
+
+	
+
+	// Region when marker should turn yellow. When the QC is reaching the tapping vicinity.
+	double markerZone_height = z + Radius*2;
+	double markerZone_bottom_x = x - Radius*2;
+	double markerZone_top_x = x + Radius*2;
+	double markerZone_bottom_y = y - Radius*2;
+	double markerZone_top_y = y + Radius*2;
+
 	//This uses one tenth of the radius. If it seems to be too much, raise the "10" below.
 	//The radius does need to be present otherwise it may not detect the copter every time.
-	double roomba_height = z + (radius / 10);
-
+	double roomba_height = z + 0.0625;
 
 	//The x coordinates that the copter has to be in
-	double bottom_x = x - radius;
-	double top_x = x + radius;
+	double bottom_x = x - Radius;
+	double top_x = x + Radius;
 
 	//The y coordinates that the copter has to be in
-	double bottom_y = y - radius;
-	double top_y = y + radius;
+	double bottom_y = y - Radius;
+	double top_y = y + Radius;
+
 
 
 	//If the copter coordinates are (0,0,0), something is probably wrong
 	if (copter_x == 0 && copter_y == 0 && copter_z == 0) return false;
+
+	// If the copter is close to the marker.
+	if(markerZone_bottom_x <= copter_x && copter_x <= markerZone_top_x){
+		if(markerZone_bottom_y <= copter_y && copter_y <= markerZone_top_y){
+			if(copter_z <= markerZone_height){
+				colour = 'y';
+			}
+		}
+	}
 	
 	//If the copter is within the radius, return true
 	if (bottom_x <= copter_x && copter_x <= top_x){
 		if (bottom_y <= copter_y && copter_y <= top_y){
-			if(copter_z <= roomba_height){
+			if((copter_z - 0.182) <= roomba_height){ // 0.182 is the length between copter centre of mass and the tip of its legs (base)
+				colour = 'g';
 				return true;
 			}
 		}
@@ -87,7 +112,7 @@ int main(int argc, char **argv)
 	//Seed for the random number generator
 	srand(1);
 
-	int looprate = 5;
+	int looprate = 20;
  	ros::init(argc, argv, "roomba");
 
  	ros::NodeHandle n;
@@ -97,6 +122,9 @@ int main(int argc, char **argv)
 
 	//Published roomba coordinates
  	ros::Publisher pubPos = n.advertise<geometry_msgs::PoseStamped>("roomba/pose", 1);
+
+ 	//Publishes the Rviz visualization marker
+ 	ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
 
 	//Subscribe to copter messages
  	ros::Subscriber sub = n.subscribe("ground_truth_to_tf/pose", 1, copterCallback);
@@ -114,7 +142,7 @@ int main(int argc, char **argv)
  	ros::Rate loop_rate(looprate);
 	//twist object to publish messages
  	geometry_msgs::Twist mov;
- 	geometry_msgs::PoseStamped pos;	
+ 	geometry_msgs::PoseStamped pos;
 
  	pos.header.stamp = ros::Time::now();
  	pos.header.frame_id = "roomba_odom";
@@ -144,6 +172,11 @@ int main(int argc, char **argv)
  	double copter_x;
  	double copter_y;
  	double copter_z;
+
+    // Colour of the marker
+ 	char colour;
+ 	// Marker id
+ 	int i =0;
 
 
 
@@ -181,7 +214,22 @@ int main(int argc, char **argv)
 		//update the coordinates in the model
  		gms_c.call(model);
 		//Update the coordinates of the roomba
- 
+
+ 		// Rviz visualization object
+		visualization_msgs::Marker marker;
+		// Set the frame ID and timestamp.
+		marker.header.frame_id = "roomba_odom";
+		marker.header.stamp = ros::Time::now();
+
+		// Set the namespace and id for this marker.  This serves to create a unique ID
+		// Any marker sent with the same namespace and id will overwrite the old one
+		marker.ns = "Roomba_Shape";
+		marker.id = i;
+
+		marker.type = visualization_msgs::Marker::CYLINDER;
+
+		// Set the marker action. ADD: create or modify
+		marker.action = visualization_msgs::Marker::ADD; 
 
 		//Set all of the coordinate variables
  		x = model.response.pose.position.x;
@@ -198,7 +246,7 @@ int main(int argc, char **argv)
 
 		//Run this once every five seconds.
 		//It started the turning of the roomba over the course of one second
-		if(((int) sim_time) % 5 == 0 && ((int) sim_time) != last_5 && ((int) sim_time) % 20 != 0){
+		if(((int) sim_time) % 10 == 0 && ((int) sim_time) != last_5 && ((int) sim_time) % 40 != 0){
 			//Create a random number to determine the angle * 2
 			//The roomba can turn 20 degrees in any direction, so it's a total of 40 degrees
 			rand_num = rand0to1();
@@ -216,7 +264,7 @@ int main(int argc, char **argv)
 		}
 
 		//On the 20 second interval, update the total angle turned
-		if(((int) sim_time) % 20 == 0 && ((int) sim_time) != last_20){
+		if(((int) sim_time) % 40 == 0 && ((int) sim_time) != last_20){
 			total_ang += ang_20;
 			//ROS_INFO_STREAM("Adding " << ang_20);
 
@@ -225,7 +273,7 @@ int main(int argc, char **argv)
 		}
 
 		//Run this during every loop on the 20 second interval
-		if (((int) sim_time) % 20 == 0){
+		if (((int) sim_time) % 40 == 0){
 			//Turn this much every iteration of the loop
 			mov.angular.z = (ang_20 * 1.76);
 
@@ -233,7 +281,7 @@ int main(int argc, char **argv)
 			mov.linear.x = 0;
 		}
 		//Run this during every loop on the 5 second interval
-		else if (((int) sim_time) % 5 == 0){
+		else if (((int) sim_time) % 10 == 0){
 			mov.angular.z = current_ang * 1.76;
 		}
 		//Don't turn if you're not on any special interval
@@ -249,7 +297,7 @@ int main(int argc, char **argv)
 		copter_z = poseMsg.pose.position.z;
 
 		//Check if the roomba is touched and can turn
-		check = checkCopter(copter_x, copter_y, copter_z, x, y, z);
+		check = checkCopter(copter_x, copter_y, copter_z, x, y, z, colour);
 
 		if (check && can_turn == true){
 			ROS_INFO_STREAM("The copter has touched");
@@ -281,9 +329,9 @@ int main(int argc, char **argv)
 
 		//mov.linear.x = 0;
 		
-		ROS_INFO_STREAM("Copter coordinates are (" << copter_x << "," << copter_y << "," << copter_z << ")");
-		ROS_INFO_STREAM("Roomba coordinates are (" << x << "," << y  << "," << z << ")");
-		//ROS_INFO_STREAM("Angle turned is " << total_ang);
+		std::cout<<"Copter coordinates are (" << copter_x << "," << copter_y << "," << copter_z << ")" << std::endl;
+		
+		std::cout<<"Roomba coordinates are (" << x << "," << y  << "," << z << ")"<<std::endl;//<< std::endl;
 
 		pos.pose.position.x = x;
 		pos.pose.position.y = y;
@@ -294,6 +342,42 @@ int main(int argc, char **argv)
 		pos.pose.orientation.z = model.response.pose.orientation.z;
 		pos.pose.orientation.w = model.response.pose.orientation.w;
 
+	    
+	    marker.pose.position.x = pos.pose.position.x;
+        marker.pose.position.y = pos.pose.position.y;
+        marker.pose.position.z =Radius/2;
+        marker.pose.orientation.x = pos.pose.orientation.x;
+        marker.pose.orientation.y = pos.pose.orientation.y;
+        marker.pose.orientation.z = pos.pose.orientation.z;
+        marker.pose.orientation.w = 1.0;
+        // Set the scale of the marker -- 1x1x1 here means 1m on a side
+        marker.scale.x = Radius*2;
+        marker.scale.y = Radius*2;
+        marker.scale.z = 0.0625;
+        // Set the color -- be sure to set alpha to something non-zero!
+        if(colour == 'y')
+        {	
+        	marker.color.r = 1.0f;
+        	marker.color.g = 1.0f;
+        	marker.color.b = 0.0f;
+        	marker.color.a = 1.0;
+        }
+        else if(colour == 'g')
+        {
+        	marker.color.r = 0.0f;
+        	marker.color.g = 1.0f;
+        	marker.color.b = 0.0f;
+        	marker.color.a = 1.0; // drop marker here with new ids.
+        	++i;	
+        }
+        else
+        {
+        	marker.color.r = 1.0f;
+        	marker.color.g = 0.0f;
+        	marker.color.b = 0.0f;
+        	marker.color.a = 1.0;
+        }	
+
 		if(mov.angular.z != 0)
 		{
 			mov.linear.x = 0;
@@ -303,6 +387,7 @@ int main(int argc, char **argv)
 
 		pubMov.publish(mov);
 		pubPos.publish(pos);
+		marker_pub.publish(marker);
 
 		ros::spinOnce();
 		loop_rate.sleep();
