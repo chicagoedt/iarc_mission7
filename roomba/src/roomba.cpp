@@ -16,11 +16,18 @@
 #include <time.h>
 #include <math.h>
 
+using namespace std;
+
 geometry_msgs::PoseStamped poseMsg;
+geometry_msgs::PoseStamped poseMsgRoomba;
 
 void copterCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
 	poseMsg = *msg;
+}
+
+void roombaCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
+	poseMsgRoomba = *msg;
 }
 
 //Returns a random number numder 0 to 1
@@ -44,7 +51,7 @@ bool checkCopter(double copter_x, double copter_y, double copter_z,
 					double x, double y, double z){
 	//The radius that the copter has to be in to tap the roomba
 	double radius = 0.05;
-	double roomba_height = z;
+	double roomba_height = z + (radius / 10);
 
 	//The x coordinates that the copter has to be in
 	double bottom_x = x - radius;
@@ -54,15 +61,14 @@ bool checkCopter(double copter_x, double copter_y, double copter_z,
 	double bottom_y = y - radius;
 	double top_y = y + radius;
 
-	ROS_INFO_STREAM("Copter coordinates are (" << copter_x << "," << copter_y << "," << copter_z << ")");
 
 	//If the copter coordinates are (0,0,0), something is probably wrong
 	if (copter_x == 0 && copter_y == 0 && copter_z == 0) return false;
 	
 	//If the copter is within the radius, return true
-	if (bottom_x < copter_x && copter_x < top_x){
-		if (bottom_y < copter_y && copter_y < top_y){
-			if(copter_y <= roomba_height){
+	if (bottom_x <= copter_x && copter_x <= top_x){
+		if (bottom_y <= copter_y && copter_y <= top_y){
+			if(copter_z <= roomba_height){
 				return true;
 			}
 		}
@@ -88,6 +94,9 @@ int main(int argc, char **argv)
 
 	//Subscribe to copter messages
  	ros::Subscriber sub = n.subscribe("ground_truth_to_tf/pose", 1, copterCallback);
+
+	//Subscribe to roomba messages
+	ros::Subscriber roomba_sub = n.subscribe("roomba/pose1", 1, roombaCallback);
 
 	//GetModelState Client. Used to gett roomba coordinates from Gazebo
  	ros::ServiceClient gms_c = 
@@ -126,6 +135,11 @@ int main(int argc, char **argv)
  	double copter_y;
  	double copter_z;
 
+	//the coordinates of the other roomba
+	double roomba_x;
+	double roomba_y;
+	double roomba_z;
+
 	//The total angle turned so far
  	double total_ang = 0;
 	//The angle to be turned on the 5 second interval
@@ -142,6 +156,9 @@ int main(int argc, char **argv)
 
 	//Determines if the roomba can turn (prevents turning >45 degrees on touch
  	bool can_turn;
+
+	//used to check if the copter has touched the target
+	bool check = 0;
 
  	double rand_num = 0;
 
@@ -216,7 +233,9 @@ int main(int argc, char **argv)
 		copter_z = poseMsg.pose.position.z;
 
 		//Check if the roomba is touched and can turn
-		if (checkCopter(copter_x, copter_y, copter_z, x, y, z) && can_turn == true){
+		check = checkCopter(copter_x, copter_y, copter_z, x, y, z);
+
+		if (check && can_turn == true){
 			ROS_INFO_STREAM("The copter has touched");
 			
 			//Keep track of the last touch of the roomba
@@ -229,7 +248,7 @@ int main(int argc, char **argv)
 			can_turn = false;
 		}
 		//If the roomba is not touched, it can turn the next time it is
-		if (!checkCopter(copter_x, copter_y, copter_z, x, y, z)) can_turn = true;
+		if (!check) can_turn = true;
 
 		//Run this every iteration for one second after a touch. It turns the roomba
 		if (last_touch + 1 > sim_time && last_touch != 0){
@@ -238,9 +257,15 @@ int main(int argc, char **argv)
 
 		simplifyAngle(total_ang);
 
-		//mov.linear.x = 0;
+		//get the coordinates from the other roomba
+		roomba_x = poseMsgRoomba.pose.position.x;
+		roomba_y = poseMsgRoomba.pose.position.y;
+		roomba_z = poseMsgRoomba.pose.position.z;
 
-		ROS_INFO_STREAM("Roomba coordinates are (" << x << "," << y << ")");
+		//mov.linear.x = 0;
+		
+		ROS_INFO_STREAM("Copter coordinates are (" << copter_x << "," << copter_y << "," << copter_z << ")");
+		ROS_INFO_STREAM("Roomba coordinates are (" << x << "," << y  << "," << z << ")");
 		//ROS_INFO_STREAM("Angle turned is " << total_ang);
 
 		pos.pose.position.x = x;
