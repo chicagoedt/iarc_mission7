@@ -8,9 +8,6 @@
  * This is most likely because of it uses the wheels to turn, it doesn't just turn the base.
  * Through trial and error, I found that multiplying by 1.76 and turning for a whole second turns the correct amount.
  * The roombas in the competition videos do turn slower though, I don't have any details on it though.
- *
- * The radius may need to be tweaked a bit. I have it set to one tenth of the xy radius, but that may not be right.
- * If anything, I feel like it's too much.
  */
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
@@ -20,10 +17,45 @@
 #include <math.h>
 #include <visualization_msgs/Marker.h>
 
- double Radius = 0.15;
+//the looprate for the loop in main
+const int looprate = 20;
+
+//the radius that the copter has to be in to touch the roomba
+const double Radius = 0.15;
+
+//The maximum angle to be turned on the 5 second interval
+const double ang_5 = (M_PI) / 9;
+//Angle to be turned on the 20 second interval
+const double ang_20 = 0 - M_PI;
+//Angle to be turned on touch
+const double ang_touch = 0 - M_PI/4;
+
+//the actual angle to be turned on the 5 second interval
+double current_ang = 0;
+//the total angle turned so far
+double total_ang = 0;
+
+double count_5 = 0;
+
+double count_20 = 0;
 
 geometry_msgs::PoseStamped poseMsg;
 geometry_msgs::PoseStamped poseMsgRoomba;
+
+
+void callback_5(const ros::TimerEvent& event){
+	current_ang = rand()/RAND_MAX * (2 * ang_5);
+	current_ang -= (ang_5);
+	total_ang += current_ang;
+
+	count_5 = 0;
+}
+
+void callback_20(const ros::TimerEvent& event){
+	count_5 = looprate;
+	total_ang += ang_20;
+	count_20 = 0;
+}
 
 //To get the coordinates of the copter
 void copterCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
@@ -34,11 +66,6 @@ void copterCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
 //To get the coordinates of the roomba
 void roombaCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
 	poseMsgRoomba = *msg;
-}
-
-//Returns a random number numder 0 to 1
-double rand0to1(){
-	return (double) rand()/RAND_MAX;
 }
 
 //Simplifies a radian
@@ -59,8 +86,6 @@ bool checkCopter(double copter_x, double copter_y, double copter_z,
 	
 	// Initially red. For when the QC is far away.
 	colour = 'r';
-
-	
 
 	// Region when marker should turn yellow. When the QC is reaching the tapping vicinity.
 	double markerZone_height = z + Radius*2;
@@ -112,26 +137,22 @@ int main(int argc, char **argv)
 	//Seed for the random number generator
 	srand(1);
 
-	int looprate = 20;
  	ros::init(argc, argv, "roomba");
 
  	ros::NodeHandle n;
 
+	ros::Timer timer_5 = n.createTimer(ros::Duration(5.0), callback_5);
+	ros::Timer timer_20 = n.createTimer(ros::Duration(20.0), callback_20);
 	//Published movement messages
  	ros::Publisher pubMov = n.advertise<geometry_msgs::Twist>("roomba/cmd_vel", 1);
-
 	//Published roomba coordinates
  	ros::Publisher pubPos = n.advertise<geometry_msgs::PoseStamped>("roomba/pose", 1);
-
  	//Publishes the Rviz visualization marker
  	ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
-
 	//Subscribe to copter messages
  	ros::Subscriber sub = n.subscribe("ground_truth_to_tf/pose", 1, copterCallback);
-
 	//Subscribe to roomba messages
 	ros::Subscriber roomba_sub = n.subscribe("roomba/pose1", 1, roombaCallback);
-
 	//GetModelState Client. Used to gett roomba coordinates from Gazebo
  	ros::ServiceClient gms_c = 
  		n.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
@@ -160,9 +181,6 @@ int main(int argc, char **argv)
 
  	double speed = 0.33;
 
- 	//speed = 3;
- 	double current_speed = 0;
-
 	//coordinates of the roomba
  	double x = 0;
  	double y = 0;
@@ -173,28 +191,15 @@ int main(int argc, char **argv)
  	double copter_y;
  	double copter_z;
 
-    // Colour of the marker
+   	// Colour of the marker
  	char colour;
  	// Marker id
  	int i =0;
-
-
 
 	//the coordinates of the other roomba
 	double roomba_x;
 	double roomba_y;
 	double roomba_z;
-
-	//The total angle turned so far
- 	double total_ang = 0;
-	//The angle to be turned on the 5 second interval
- 	double ang_5 = (M_PI) / 9;
-	//Angle to be turned on the 20 second interval
- 	double ang_20 = 0 - M_PI;
-	//Angle to be turned on touch
- 	double ang_touch = 0 - M_PI/4;
-	//The total angle to be turned this iteration
- 	double current_ang = 0;
 
 	//The last second that the roomba was touched on
  	double last_touch = 0;
@@ -239,54 +244,22 @@ int main(int argc, char **argv)
 		//Update the time of the simulation
 		sim_time = ros::Time::now().toSec();
 
+		std::cout << sim_time << std::endl;
+
 		//Move according the the speed
 		mov.linear.x = speed;
 
 		/*Move the roomba as it normally should on the 5 and 20 second intervals*/
+		mov.angular.z = 0;
 
-		//Run this once every five seconds.
-		//It started the turning of the roomba over the course of one second
-		if(((int) sim_time) % 10 == 0 && ((int) sim_time) != last_5 && ((int) sim_time) % 40 != 0){
-			//Create a random number to determine the angle * 2
-			//The roomba can turn 20 degrees in any direction, so it's a total of 40 degrees
-			rand_num = rand0to1();
-			current_ang = rand_num * (2 * ang_5);
-
-			//Set the center of the 40 degree angle to 0
-			current_ang -= (ang_5);
-
-			//ROS_INFO_STREAM("Adding " << (rand_num * (2 * ang_5)) - ang_5);
-			//Add to total to keep track of the total angle
-			total_ang += current_ang;
-
-			//This is necessary to not run more than once on the five second interval
-			last_5 = (int) sim_time;
+		if (count_5 < looprate){
+			mov.angular.z = current_ang ;//* 1.76;
+			count_5++;
 		}
 
-		//On the 20 second interval, update the total angle turned
-		if(((int) sim_time) % 40 == 0 && ((int) sim_time) != last_20){
-			total_ang += ang_20;
-			//ROS_INFO_STREAM("Adding " << ang_20);
-
-			//This is necessary to not run more than once on the twenty second interval
-			last_20 = (int) sim_time;
-		}
-
-		//Run this during every loop on the 20 second interval
-		if (((int) sim_time) % 40 == 0){
-			//Turn this much every iteration of the loop
-			mov.angular.z = (ang_20 * 1.76);
-
-			//Don't move forward on the turn
-			mov.linear.x = 0;
-		}
-		//Run this during every loop on the 5 second interval
-		else if (((int) sim_time) % 10 == 0){
-			mov.angular.z = current_ang * 1.76;
-		}
-		//Don't turn if you're not on any special interval
-		else{
-			mov.angular.z = 0;
+		if (count_20 < looprate){
+			mov.angular.z = ang_20 ;//* 1.76;
+			count_20++;
 		}
 
 		/*Move the roomba when the copter taps it*/
@@ -343,7 +316,7 @@ int main(int argc, char **argv)
 		pos.pose.orientation.w = model.response.pose.orientation.w;
 
 	    
-	    marker.pose.position.x = pos.pose.position.x;
+		marker.pose.position.x = pos.pose.position.x;
         marker.pose.position.y = pos.pose.position.y;
         marker.pose.position.z =Radius/2;
         marker.pose.orientation.x = pos.pose.orientation.x;
