@@ -7,6 +7,11 @@
 #include <std_msgs/Bool.h>
 
 #define RVEL 3
+/* FIX ME!!! BUG FOUND ON FEB 5.
+   QC eventually changes orientation to a 90 degree angle with the world. So the velocity sent is actually 90 degrees
+   w.r.t to the world. This makes it go in circles around the roomba.
+   Make the orientation (0,0,0) or the spawn orientation everytime it changes thus maintaining the same orientation.
+*/   
 /* Consider vector (x,y,z) to be the dirn to go, publish twist as (x,y,z). This will make the qc go in the particular dirn. As for it to stop we check if the distance b/w it's current position and the original position is equal to the distance b/w the roomba and it's original position. or stop when it is a certain distance away. (using shortest distance formula).
 */
 /* qcp = quad copter position
@@ -252,9 +257,14 @@ void vector::calculate()
 			state = 0;
 			timecheck = 0;
 			//std::cout << "Velocity IN 3: ("<<msg.linear.x<<","<<msg.linear.y<<","<<msg.linear.z<<")"<< std::endl;
-		}			
+		}	
 
-		//std::cout << "Distance b/w qc and rp:" <<vmag2<< std::endl;
+		// To prevent 
+		msg.angular.x = -(feedbackMsgqcp.pose.orientation.x);
+		msg.angular.y = -(feedbackMsgqcp.pose.orientation.y);
+		msg.angular.z = -(feedbackMsgqcp.pose.orientation.z);
+
+		std::cout << "Distance b/w qc and rp:" <<vmag2<< std::endl;
 		std::cout << "Stage:"<<state<< std::endl;
 		//std::cout << "dx/dt:"<<dxbydt<< std::endl;
 		//std::cout << "dy/dt:"<<dybydt<< std::endl;
