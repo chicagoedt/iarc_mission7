@@ -1,14 +1,3 @@
-/* One thing I'm unsure of is the speed of the roomba.
- * I had it set to 0.33, but that didn't seem like 0.33 m/s.
- * I think it might be in cm/s, but I'm really not 100% sure.
- * I have it set to 3 right now.
- *
- * The other thing that I'm unsure of is the method of turning.
- * When I add to the Twist to turn, it didn't turn the amount that I added.
- * This is most likely because of it uses the wheels to turn, it doesn't just turn the base.
- * Through trial and error, I found that multiplying by 1.76 and turning for a whole second turns the correct amount.
- * The roombas in the competition videos do turn slower though, I don't have any details on it though.
- */
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -30,6 +19,11 @@ const double ang_20 = 0 - M_PI;
 //Angle to be turned on touch
 const double ang_touch = 0 - M_PI/4;
 
+//the distance that the copter will have to be to block the roomba
+const int distance = Radius;
+//The width of the hitbox for the copter to block the roomba
+const int blockRadius = 1;
+
 //the actual angle to be turned on the 5 second interval
 double current_ang = 0;
 //the total angle turned so far
@@ -40,7 +34,6 @@ double count_5 = 0;
 double count_20 = 0;
 
 geometry_msgs::PoseStamped poseMsg;
-geometry_msgs::PoseStamped poseMsgRoomba;
 
 ros::Timer timer_5;
 ros::Timer timer_20;
@@ -53,13 +46,14 @@ void callback_5(const ros::TimerEvent& event){
 	current_ang = (std::rand() % 41-20)/180.0f*M_PI;
 	//current_ang = rand() / RAND_MAX *(2* ang_5);
 	total_ang += current_ang;
-	ROS_INFO_STREAM("Noise in callback " << total_ang << " " << current_ang);
+	ROS_INFO_STREAM("Angle turned: " << total_ang << " " << current_ang);
 	count_5 = 0;
 }
 
 void callback_20(const ros::TimerEvent& event){
 	count_5 = looprate; // set it to 20, so we stop callback_5 when 20 sec pass
 	total_ang += ang_20;
+	ROS_INFO_STREAM("Angle turned: " << total_ang << " " << ang_20);
 	count_20 = 0;
 }
 
@@ -67,11 +61,6 @@ void callback_20(const ros::TimerEvent& event){
 void copterCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
 	poseMsg = *msg;
-}
-
-//To get the coordinates of the roomba
-void roombaCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
-	poseMsgRoomba = *msg;
 }
 
 //Simplifies a radian
@@ -161,10 +150,10 @@ int main(int argc, char **argv)
  	ros::Publisher pubPos = n.advertise<geometry_msgs::PoseStamped>("roomba/pose", 1);
  	//Publishes the Rviz visualization marker
  	ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
+ 	//Publishes the hitbox for the copter blocking the roomba
+ 	ros::Publisher block_pub = n.advertise<visualization_msgs::Marker>("visualization_block", 1);
 	//Subscribe to copter messages
  	ros::Subscriber sub = n.subscribe("ground_truth_to_tf/pose", 1, copterCallback);
-	//Subscribe to roomba messages
-	ros::Subscriber roomba_sub = n.subscribe("roomba/pose1", 1, roombaCallback);
 	//GetModelState Client. Used to gett roomba coordinates from Gazebo
  	ros::ServiceClient gms_c = 
  		n.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
@@ -179,14 +168,6 @@ int main(int argc, char **argv)
 
  	pos.header.stamp = ros::Time::now();
  	pos.header.frame_id = "roomba_odom";
-
-
-	//The last number on the 20 second interval
- 	int last_20 = 0;
-	//The last number on the 5 second interval
- 	int last_5 = 0;
-	//The last number on the 1 second interval
- 	int last_1 = 0;
 
 	//The time of the current simulation in seconds
  	double sim_time;
@@ -207,11 +188,6 @@ int main(int argc, char **argv)
  	char colour;
  	// Marker id
  	int i =0;
-
-	//the coordinates of the other roomba
-	double roomba_x;
-	double roomba_y;
-	double roomba_z;
 
 	//The last second that the roomba was touched on
  	double last_touch = 0;
@@ -249,6 +225,17 @@ int main(int argc, char **argv)
 		// Set the marker action. ADD: create or modify
 		marker.action = visualization_msgs::Marker::ADD; 
 
+		//Rviz object for the copter block zone
+		visualization_msgs::Marker block;
+		block.header.frame_id = "roomba_odom";
+		block.header.stamp = ros::Time::now();
+
+		block.ns = "Block_zone";
+		block.id = 1;
+		block.type = visualization_msgs::Marker::CUBE;
+		block.action = visualization_msgs::Marker::ADD;
+
+
 		//Set all of the coordinate variables
  		x = model.response.pose.position.x;
 		y = model.response.pose.position.y;
@@ -269,14 +256,14 @@ int main(int argc, char **argv)
 		// based on 2.456s/180 degr, we can find how long it takes to turn x degr
 		// by doing: 2.456s/180 degr * degrees to turn = time to turn
 		if (count_5 < (fabs(current_ang)/M_PI*2.456*looprate)){ // 2.456 is how long to turn as per iarc docs
-			mov.angular.z = 1.279; // this speed is iarc specified        //current_ang;//* 1.76;
+			mov.angular.z = 1.279; // this speed is iarc specified
 			std::cout << current_ang << std::endl;
 			count_5++;
 		}
 
 		if (count_20 < 2.456*looprate){
 			mov.linear.x = 0;
-			mov.angular.z = 1.279;// ang_20          * 1.76;
+			mov.angular.z = 1.279;// ang_20
 			count_20++;
 		}
 
@@ -298,6 +285,7 @@ int main(int argc, char **argv)
 
 			//Update the total angle
 			total_ang += ang_touch; //changed
+			ROS_INFO_STREAM("Angle turned: " << total_ang << " " << ang_touch);
 
 			//The roomba cannot turn until it is no longer touched again
 			can_turn = false;
@@ -311,12 +299,7 @@ int main(int argc, char **argv)
 		}
 
 		//Simplify the angle, just for readibility
-		simplifyAngle(total_ang);
-
-		//get the coordinates from the other roomba
-		roomba_x = poseMsgRoomba.pose.position.x;
-		roomba_y = poseMsgRoomba.pose.position.y;
-		roomba_z = poseMsgRoomba.pose.position.z;
+		//simplifyAngle(total_ang);
 
 		//mov.linear.x = 0;
 		
@@ -336,7 +319,7 @@ int main(int argc, char **argv)
 	    
 		marker.pose.position.x = pos.pose.position.x;
         marker.pose.position.y = pos.pose.position.y;
-        marker.pose.position.z =Radius/2;
+        marker.pose.position.z = Radius/2;
         marker.pose.orientation.x = pos.pose.orientation.x;
         marker.pose.orientation.y = pos.pose.orientation.y;
         marker.pose.orientation.z = pos.pose.orientation.z;
@@ -369,6 +352,22 @@ int main(int argc, char **argv)
         	marker.color.a = 1.0;
         }	
 
+        block.pose.position.y = pos.pose.position.y + (sin(total_ang) * blockRadius);
+        block.pose.position.x = pos.pose.position.x + (cos(total_ang) * blockRadius);
+        block.pose.position.z = marker.pose.position.z;
+        //this scale is temporary
+        block.scale.x = Radius*2;
+        block.scale.y = Radius*2;
+        block.scale.z = marker.scale.z;
+        //this color is also temporary
+        block.color.r = 1.0f;
+        block.color.g = 0.0f;
+        block.color.b = 0.0f;
+        block.color.a = 1.0;
+
+        std::cout << "Block position is: " << block.pose.position.x << "," << block.pose.position.y << "," << block.pose.position.z << std::endl;
+        std::cout << "Block scale is: " << block.scale.x << "," << block.scale.y << "," << block.scale.z << std::endl;
+
 		if(mov.angular.z != 0)
 		{
 			mov.linear.x = 0;
@@ -379,6 +378,7 @@ int main(int argc, char **argv)
 		pubMov.publish(mov);
 		pubPos.publish(pos);
 		marker_pub.publish(marker);
+		block_pub.publish(block);
 
 		ros::spinOnce();
 		loop_rate.sleep();
