@@ -22,7 +22,7 @@ const double ang_touch = 0 - M_PI/4;
 //the distance that the copter will have to be to block the roomba
 const int distance = Radius;
 //The width of the hitbox for the copter to block the roomba
-const int blockRadius = 1;
+const int blockRadius = 500;
 
 //the actual angle to be turned on the 5 second interval
 double current_ang = 0;
@@ -64,15 +64,15 @@ void copterCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
 }
 
 //Simplifies a radian
-void simplifyAngle(double& total_ang){
-	while(total_ang < 0 - (M_PI*2) || total_ang > (M_PI*2)){
-		if (total_ang < 0 - (M_PI*2)){
-			total_ang += (M_PI*2);
-		}
-		else if (total_ang > (M_PI*2)){
-			total_ang -= (M_PI*2);
-		}
+double reduceAngle(double ang){
+	while(ang > (M_PI/2)){
+		ang -= (M_PI/2);
 	}
+	while (ang < (M_PI/2)){
+		ang += (M_PI/2);
+	}
+	return ang;
+
 }
 
 bool checkCopter(double copter_x, double copter_y, double copter_z, 
@@ -178,11 +178,18 @@ int main(int argc, char **argv)
  	double x = 0;
  	double y = 0;
  	double z = 0;
+
+ 	double last_x;
+ 	double last_y;
+ 	double velocity_x;
+ 	double velocity_y;
 	
 	//coordinates of the copter
  	double copter_x;
  	double copter_y;
  	double copter_z;
+
+ 	double ang_reduced;
 
    	// Colour of the marker
  	char colour;
@@ -202,7 +209,6 @@ int main(int argc, char **argv)
 
  	while (ros::ok())
  	{
-
 		pos.header.stamp = ros::Time::now();
 
 		//update the coordinates in the model
@@ -240,6 +246,12 @@ int main(int argc, char **argv)
  		x = model.response.pose.position.x;
 		y = model.response.pose.position.y;
 		z = model.response.pose.position.z;
+
+		velocity_x = (x - last_x) / looprate;
+		velocity_y = (y - last_y) / looprate;
+
+		last_x = x;
+		last_y = y;
 
 		//Update the time of the simulation
 		sim_time = ros::Time::now().toSec();
@@ -350,23 +362,29 @@ int main(int argc, char **argv)
         	marker.color.g = 0.0f;
         	marker.color.b = 0.0f;
         	marker.color.a = 1.0;
-        }	
+        }
 
-        block.pose.position.y = pos.pose.position.y + (sin(total_ang) * blockRadius);
-        block.pose.position.x = pos.pose.position.x + (cos(total_ang) * blockRadius);
+		block.pose.position.y = marker.pose.position.y + (velocity_y * blockRadius);
+		block.pose.position.x = marker.pose.position.x + (velocity_x * blockRadius);
         block.pose.position.z = marker.pose.position.z;
+        block.pose.orientation.x = pos.pose.orientation.x;
+        block.pose.orientation.y = pos.pose.orientation.y;
+        block.pose.orientation.z = pos.pose.orientation.z;
+        block.pose.orientation.w = 1.0;
         //this scale is temporary
         block.scale.x = Radius*2;
         block.scale.y = Radius*2;
         block.scale.z = marker.scale.z;
         //this color is also temporary
-        block.color.r = 1.0f;
+        block.color.r = 0.0f;
         block.color.g = 0.0f;
-        block.color.b = 0.0f;
+        block.color.b = 1.0f;
         block.color.a = 1.0;
 
         std::cout << "Block position is: " << block.pose.position.x << "," << block.pose.position.y << "," << block.pose.position.z << std::endl;
         std::cout << "Block scale is: " << block.scale.x << "," << block.scale.y << "," << block.scale.z << std::endl;
+
+        std::cout << "Total angle is " << total_ang << std::endl;
 
 		if(mov.angular.z != 0)
 		{
