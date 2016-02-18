@@ -77,13 +77,11 @@ double reduceAngle(double ang){
 
 bool checkCopter(double copter_x, double copter_y, double copter_z, 
 					double x, double y, double z, char &colour){
-	//The radius that the copter has to be in to tap the roomba
-	
 	// Initially red. For when the QC is far away.
 	colour = 'r';
 
 	// Region when marker should turn yellow. When the QC is reaching the tapping vicinity.
-	double markerZone_height = z + Radius*2;
+	double markerZone_height = z + (Radius/2) + 0.0625;
 	double markerZone_bottom_x = x - Radius*2;
 	double markerZone_top_x = x + Radius*2;
 	double markerZone_bottom_y = y - Radius*2;
@@ -91,17 +89,15 @@ bool checkCopter(double copter_x, double copter_y, double copter_z,
 
 	//This uses one tenth of the radius. If it seems to be too much, raise the "10" below.
 	//The radius does need to be present otherwise it may not detect the copter every time.
-	double roomba_height = z + 0.0625;
+	double roomba_height = z + (Radius/2) + 0.0625;
 
 	//The x coordinates that the copter has to be in
-	double bottom_x = x - Radius;
-	double top_x = x + Radius;
+	double bottom_x = x - Radius*2;
+	double top_x = x + Radius*2;
 
 	//The y coordinates that the copter has to be in
-	double bottom_y = y - Radius;
-	double top_y = y + Radius;
-
-
+	double bottom_y = y - Radius*2;
+	double top_y = y + Radius*2;
 
 	//If the copter coordinates are (0,0,0), something is probably wrong
 	if (copter_x == 0 && copter_y == 0 && copter_z == 0) return false;
@@ -131,6 +127,10 @@ bool checkCopter(double copter_x, double copter_y, double copter_z,
 		}
 	}
 	return false;
+}
+
+bool checkBlock(double x, double y, double velocity_x, double velocity_y){
+	
 }
 
 int main(int argc, char **argv)
@@ -364,12 +364,9 @@ int main(int argc, char **argv)
         	marker.color.a = 1.0;
         }
 
-		block.pose.position.y = marker.pose.position.y + (velocity_y * blockRadius);
-		block.pose.position.x = marker.pose.position.x + (velocity_x * blockRadius);
-        block.pose.position.z = marker.pose.position.z;
-        block.pose.orientation.x = pos.pose.orientation.x;
-        block.pose.orientation.y = pos.pose.orientation.y;
-        block.pose.orientation.z = pos.pose.orientation.z;
+		block.pose.position.y = pos.pose.position.y + (velocity_y * blockRadius);
+		block.pose.position.x = pos.pose.position.x + (velocity_x * blockRadius);
+        block.pose.position.z = pos.pose.position.z;
         block.pose.orientation.w = 1.0;
         //this scale is temporary
         block.scale.x = Radius*2;
