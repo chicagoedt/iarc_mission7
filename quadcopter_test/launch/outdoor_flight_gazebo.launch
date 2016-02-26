@@ -6,7 +6,8 @@
   <arg name="roomba" default="true"/>
 
   <!-- Start Gazebo with wg world running in (max) realtime -->
-  <include file="$(find hector_gazebo_worlds)/launch/start.launch">
+  <include file="start.launch">
+  	<arg name="world" value="$(find quadcopter_test)/worlds/empty.world"/>
   <!-- <arg name="world" value="$(find quadcopter_test)/worlds/empty_world_test.world"/> -->
    <arg name="gui" value="$(arg gui)"/> 
   </include>
