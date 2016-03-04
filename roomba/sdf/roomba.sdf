@@ -185,6 +185,12 @@
           </range>
         </ray>
       </sensor>
+
+      <sensor name="base_contact" type="contact">
+        <contact>
+          <collision>base_collision</collision>
+        </contact>
+      </sensor>
     </link>
 
 

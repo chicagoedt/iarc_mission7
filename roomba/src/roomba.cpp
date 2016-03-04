@@ -1,14 +1,3 @@
-/* One thing I'm unsure of is the speed of the roomba.
- * I had it set to 0.33, but that didn't seem like 0.33 m/s.
- * I think it might be in cm/s, but I'm really not 100% sure.
- * I have it set to 3 right now.
- *
- * The other thing that I'm unsure of is the method of turning.
- * When I add to the Twist to turn, it didn't turn the amount that I added.
- * This is most likely because of it uses the wheels to turn, it doesn't just turn the base.
- * Through trial and error, I found that multiplying by 1.76 and turning for a whole second turns the correct amount.
- * The roombas in the competition videos do turn slower though, I don't have any details on it though.
- */
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -30,6 +19,11 @@ const double ang_20 = 0 - M_PI;
 //Angle to be turned on touch
 const double ang_touch = 0 - M_PI/4;
 
+//the distance that the copter will have to be to block the roomba
+const int distance = Radius;
+//The width of the hitbox for the copter to block the roomba
+const int blockRadius = 500;
+
 //the actual angle to be turned on the 5 second interval
 double current_ang = 0;
 //the total angle turned so far
@@ -40,7 +34,6 @@ double count_5 = 0;
 double count_20 = 0;
 
 geometry_msgs::PoseStamped poseMsg;
-geometry_msgs::PoseStamped poseMsgRoomba;
 
 ros::Timer timer_5;
 ros::Timer timer_20;
@@ -53,13 +46,14 @@ void callback_5(const ros::TimerEvent& event){
 	current_ang = (std::rand() % 41-20)/180.0f*M_PI;
 	//current_ang = rand() / RAND_MAX *(2* ang_5);
 	total_ang += current_ang;
-	ROS_INFO_STREAM("Noise in callback " << total_ang << " " << current_ang);
+	ROS_INFO_STREAM("Angle turned: " << total_ang << " " << current_ang);
 	count_5 = 0;
 }
 
 void callback_20(const ros::TimerEvent& event){
 	count_5 = looprate; // set it to 20, so we stop callback_5 when 20 sec pass
 	total_ang += ang_20;
+	ROS_INFO_STREAM("Angle turned: " << total_ang << " " << ang_20);
 	count_20 = 0;
 }
 
@@ -69,32 +63,25 @@ void copterCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
 	poseMsg = *msg;
 }
 
-//To get the coordinates of the roomba
-void roombaCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
-	poseMsgRoomba = *msg;
-}
-
 //Simplifies a radian
-void simplifyAngle(double& total_ang){
-	while(total_ang < 0 - (M_PI*2) || total_ang > (M_PI*2)){
-		if (total_ang < 0 - (M_PI*2)){
-			total_ang += (M_PI*2);
-		}
-		else if (total_ang > (M_PI*2)){
-			total_ang -= (M_PI*2);
-		}
+double reduceAngle(double ang){
+	while(ang > (M_PI/2)){
+		ang -= (M_PI/2);
 	}
+	while (ang < (M_PI/2)){
+		ang += (M_PI/2);
+	}
+	return ang;
+
 }
 
 bool checkCopter(double copter_x, double copter_y, double copter_z, 
 					double x, double y, double z, char &colour){
-	//The radius that the copter has to be in to tap the roomba
-	
 	// Initially red. For when the QC is far away.
 	colour = 'r';
 
 	// Region when marker should turn yellow. When the QC is reaching the tapping vicinity.
-	double markerZone_height = z + Radius*2;
+	double markerZone_height = z + (Radius/2) + 0.0625;
 	double markerZone_bottom_x = x - Radius*2;
 	double markerZone_top_x = x + Radius*2;
 	double markerZone_bottom_y = y - Radius*2;
@@ -102,17 +89,15 @@ bool checkCopter(double copter_x, double copter_y, double copter_z,
 
 	//This uses one tenth of the radius. If it seems to be too much, raise the "10" below.
 	//The radius does need to be present otherwise it may not detect the copter every time.
-	double roomba_height = z + 0.0625;
+	double roomba_height = z + (Radius/2) + 0.0625;
 
 	//The x coordinates that the copter has to be in
-	double bottom_x = x - Radius;
-	double top_x = x + Radius;
+	double bottom_x = x - Radius*2;
+	double top_x = x + Radius*2;
 
 	//The y coordinates that the copter has to be in
-	double bottom_y = y - Radius;
-	double top_y = y + Radius;
-
-
+	double bottom_y = y - Radius*2;
+	double top_y = y + Radius*2;
 
 	//If the copter coordinates are (0,0,0), something is probably wrong
 	if (copter_x == 0 && copter_y == 0 && copter_z == 0) return false;
@@ -144,6 +129,10 @@ bool checkCopter(double copter_x, double copter_y, double copter_z,
 	return false;
 }
 
+bool checkBlock(double x, double y, double velocity_x, double velocity_y){
+	
+}
+
 int main(int argc, char **argv)
 {
 	//Seed for the random number generator
@@ -161,10 +150,10 @@ int main(int argc, char **argv)
  	ros::Publisher pubPos = n.advertise<geometry_msgs::PoseStamped>("roomba/pose", 1);
  	//Publishes the Rviz visualization marker
  	ros::Publisher marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
+ 	//Publishes the hitbox for the copter blocking the roomba
+ 	ros::Publisher block_pub = n.advertise<visualization_msgs::Marker>("visualization_block", 1);
 	//Subscribe to copter messages
  	ros::Subscriber sub = n.subscribe("ground_truth_to_tf/pose", 1, copterCallback);
-	//Subscribe to roomba messages
-	ros::Subscriber roomba_sub = n.subscribe("roomba/pose1", 1, roombaCallback);
 	//GetModelState Client. Used to gett roomba coordinates from Gazebo
  	ros::ServiceClient gms_c = 
  		n.serviceClient<gazebo_msgs::GetModelState>("/gazebo/get_model_state");
@@ -180,14 +169,6 @@ int main(int argc, char **argv)
  	pos.header.stamp = ros::Time::now();
  	pos.header.frame_id = "roomba_odom";
 
-
-	//The last number on the 20 second interval
- 	int last_20 = 0;
-	//The last number on the 5 second interval
- 	int last_5 = 0;
-	//The last number on the 1 second interval
- 	int last_1 = 0;
-
 	//The time of the current simulation in seconds
  	double sim_time;
 
@@ -197,21 +178,23 @@ int main(int argc, char **argv)
  	double x = 0;
  	double y = 0;
  	double z = 0;
+
+ 	double last_x;
+ 	double last_y;
+ 	double velocity_x;
+ 	double velocity_y;
 	
 	//coordinates of the copter
  	double copter_x;
  	double copter_y;
  	double copter_z;
 
+ 	double ang_reduced;
+
    	// Colour of the marker
  	char colour;
  	// Marker id
  	int i =0;
-
-	//the coordinates of the other roomba
-	double roomba_x;
-	double roomba_y;
-	double roomba_z;
 
 	//The last second that the roomba was touched on
  	double last_touch = 0;
@@ -226,7 +209,6 @@ int main(int argc, char **argv)
 
  	while (ros::ok())
  	{
-
 		pos.header.stamp = ros::Time::now();
 
 		//update the coordinates in the model
@@ -249,10 +231,27 @@ int main(int argc, char **argv)
 		// Set the marker action. ADD: create or modify
 		marker.action = visualization_msgs::Marker::ADD; 
 
+		//Rviz object for the copter block zone
+		visualization_msgs::Marker block;
+		block.header.frame_id = "roomba_odom";
+		block.header.stamp = ros::Time::now();
+
+		block.ns = "Block_zone";
+		block.id = 1;
+		block.type = visualization_msgs::Marker::CUBE;
+		block.action = visualization_msgs::Marker::ADD;
+
+
 		//Set all of the coordinate variables
  		x = model.response.pose.position.x;
 		y = model.response.pose.position.y;
 		z = model.response.pose.position.z;
+
+		velocity_x = (x - last_x) / looprate;
+		velocity_y = (y - last_y) / looprate;
+
+		last_x = x;
+		last_y = y;
 
 		//Update the time of the simulation
 		sim_time = ros::Time::now().toSec();
@@ -269,14 +268,14 @@ int main(int argc, char **argv)
 		// based on 2.456s/180 degr, we can find how long it takes to turn x degr
 		// by doing: 2.456s/180 degr * degrees to turn = time to turn
 		if (count_5 < (fabs(current_ang)/M_PI*2.456*looprate)){ // 2.456 is how long to turn as per iarc docs
-			mov.angular.z = 1.279; // this speed is iarc specified        //current_ang;//* 1.76;
+			mov.angular.z = 1.279; // this speed is iarc specified
 			std::cout << current_ang << std::endl;
 			count_5++;
 		}
 
 		if (count_20 < 2.456*looprate){
 			mov.linear.x = 0;
-			mov.angular.z = 1.279;// ang_20          * 1.76;
+			mov.angular.z = 1.279;// ang_20
 			count_20++;
 		}
 
@@ -298,6 +297,7 @@ int main(int argc, char **argv)
 
 			//Update the total angle
 			total_ang += ang_touch; //changed
+			ROS_INFO_STREAM("Angle turned: " << total_ang << " " << ang_touch);
 
 			//The roomba cannot turn until it is no longer touched again
 			can_turn = false;
@@ -311,12 +311,7 @@ int main(int argc, char **argv)
 		}
 
 		//Simplify the angle, just for readibility
-		simplifyAngle(total_ang);
-
-		//get the coordinates from the other roomba
-		roomba_x = poseMsgRoomba.pose.position.x;
-		roomba_y = poseMsgRoomba.pose.position.y;
-		roomba_z = poseMsgRoomba.pose.position.z;
+		//simplifyAngle(total_ang);
 
 		//mov.linear.x = 0;
 		
@@ -336,7 +331,7 @@ int main(int argc, char **argv)
 	    
 		marker.pose.position.x = pos.pose.position.x;
         marker.pose.position.y = pos.pose.position.y;
-        marker.pose.position.z =Radius/2;
+        marker.pose.position.z = Radius/2;
         marker.pose.orientation.x = pos.pose.orientation.x;
         marker.pose.orientation.y = pos.pose.orientation.y;
         marker.pose.orientation.z = pos.pose.orientation.z;
@@ -367,7 +362,26 @@ int main(int argc, char **argv)
         	marker.color.g = 0.0f;
         	marker.color.b = 0.0f;
         	marker.color.a = 1.0;
-        }	
+        }
+
+		block.pose.position.y = pos.pose.position.y + (velocity_y * blockRadius);
+		block.pose.position.x = pos.pose.position.x + (velocity_x * blockRadius);
+        block.pose.position.z = pos.pose.position.z;
+        block.pose.orientation.w = 1.0;
+        //this scale is temporary
+        block.scale.x = Radius*2;
+        block.scale.y = Radius*2;
+        block.scale.z = marker.scale.z;
+        //this color is also temporary
+        block.color.r = 0.0f;
+        block.color.g = 0.0f;
+        block.color.b = 1.0f;
+        block.color.a = 1.0;
+
+        std::cout << "Block position is: " << block.pose.position.x << "," << block.pose.position.y << "," << block.pose.position.z << std::endl;
+        std::cout << "Block scale is: " << block.scale.x << "," << block.scale.y << "," << block.scale.z << std::endl;
+
+        std::cout << "Total angle is " << total_ang << std::endl;
 
 		if(mov.angular.z != 0)
 		{
@@ -379,6 +393,7 @@ int main(int argc, char **argv)
 		pubMov.publish(mov);
 		pubPos.publish(pos);
 		marker_pub.publish(marker);
+		block_pub.publish(block);
 
 		ros::spinOnce();
 		loop_rate.sleep();
