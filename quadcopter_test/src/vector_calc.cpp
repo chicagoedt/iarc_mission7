@@ -109,7 +109,7 @@ void vector::callbackrp(const geometry_msgs::PoseStamped::ConstPtr& posrp)
 
 void vector::calculate()
 {
-		// CHANGE!!!! Put in class!!
+
 		i = 0; // counter for rviz points.
 		timerun = 1; //Seconds. no. of seconds to reach roomba once above it. 
 // x1, y1, z1 are qc to roomba vectors.		
@@ -268,7 +268,7 @@ void vector::calculate()
 		std::cout << "Stage:"<<state<< std::endl;
 		//std::cout << "dx/dt:"<<dxbydt<< std::endl;
 		//std::cout << "dy/dt:"<<dybydt<< std::endl;
-		//std::cout << "Roomba(frm QC):"<<sqrt(dxbydt*dxbydt + dybydt*dybydt)<<std::endl;
+		std::cout << "Roomba(frm QC):"<<sqrt(dxbydt*dxbydt + dybydt*dybydt)<<std::endl;
 		std::cout << "QC coordinates in QC: "<<"("<<feedbackMsgqcp.pose.position.x<<","<< feedbackMsgqcp.pose.position.y<<","<< feedbackMsgqcp.pose.position.z<<")"<< std::endl;
 		std::cout << "Roomba in QC: ("<<feedbackMsgrp.pose.position.x<<","<<feedbackMsgrp.pose.position.y<<","<<feedbackMsgrp.pose.position.z<<")"<<std::endl;
 		//std::cout <<x2<<y2<<z2<< std::endl;

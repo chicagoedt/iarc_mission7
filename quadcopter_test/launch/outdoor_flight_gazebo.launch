@@ -5,12 +5,19 @@
   <arg name="gui" default="true"/>
   <arg name="roomba" default="true"/>
 
+  <env name="GAZEBO_MODEL_PATH" value="$(find quadcopter_test)"/>
+
   <!-- Start Gazebo with wg world running in (max) realtime -->
-  <include file="$(find hector_gazebo_worlds)/launch/start.launch">
-  <!-- <arg name="world" value="$(find quadcopter_test)/worlds/empty_world_test.world"/> -->
+<!--  <include file="$(find hector_gazebo_worlds)/launch/start.launch">
+   <arg name="world" value="$(find quadcopter_test)/worlds/empty_world_test.world"/>  here
    <arg name="gui" value="$(arg gui)"/> 
   </include>
+-->
+	<include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find quadcopter_test)/worlds/empty_world_test.world"/>
+   <arg name="gui" value="$(arg gui)"/> 
 
+   </include>
 
 <!--
   <include file="$(find hector_gazebo_worlds)/launch/start.launch">
@@ -31,7 +38,13 @@
       args="0 0 0 0 0 0 world roomba_odom 100" >
     </node>
 
+
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+  <param name="base_global_planner" value="RAstar_planner/RAstarPlannerROS"/> 
+ </node>
+<!--
   <node pkg="quadcopter_test" type="vector_test" name="vector_test" output="screen"/>
+  -->  
   <node pkg="quadcopter_test" type="Tap_Decisions" name="Tap_Decisions" output="screen"/>
   <node pkg="roomba" type="roomba" name="roomba" output="screen"/>
   
@@ -59,8 +72,8 @@
 -->
 
   <!-- Start rviz visualization with preset config -->
-  
-  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find hector_quadrotor_demo)/rviz_cfg/outdoor_flight.rviz"/>
- 
+  <!--
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find hector_quadrotor_demo)/rviz_cfg/outdoor_flight.rviz" />
+ -->
    
 </launch>

@@ -16,7 +16,7 @@
       <direction>0.1 0.1 -1</direction>
       <cast_shadows>false</cast_shadows>
     </light>
-    <model name="fake_ground">
+  <!--  <model name="fake_ground">
       <link name="fake_ground_link">
         <pose>0 0 -0.01 0 0 0</pose>
         <collision name="fake_ground_collision">
@@ -29,9 +29,49 @@
       </link>
       <static>true</static>
     </model>
+
+
     <include>
       <uri>model://create</uri>
+    </include> -->
+
+<!--     <model name="IARC_GROUND">
+      <link name="ground_link">
+        <pose>0 0 -0.01 0 0 0</pose>
+        <collision name="ground_collision">
+          <geometry>
+        		<box>
+        			<size>20 20 0.01</size>
+        		</box>
+          </geometry>
+        </collision>
+      </link>
+      <static>true</static>
+    </model> -->
+
+    <include>
+      <uri>model://IARC Floor</uri>
     </include>
+
+	<include>
+	 <pose> 0 9.9 0.001 0 0 0 </pose>
+	 <uri>model://green_line</uri>
+	</include>
+
+	<include>
+	 <pose> 0 -9.9 0.001 0 0 0 </pose>
+	 <uri>model://red_line</uri>
+	</include>
+
+	<include>
+	 <pose> 9.9 0 0.001 0 0 0 </pose>
+	 <uri>model://white_line</uri>
+	</include>
+
+	<include>
+	 <pose> -9.9 0 0.001 0 0 0 </pose>
+	 <uri>model://white_line</uri>
+	</include>
 <!--
     <model name="120m_landscape_smooth_tri">
       <link name="120m_landscape_smooth_tri_link">

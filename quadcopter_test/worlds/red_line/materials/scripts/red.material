@@ -1,0 +1,17 @@
+material vrc/red
+{
+	technique
+	{
+		pass
+		{
+
+
+			texture_unit
+			{
+				texture LineRed.jpg
+
+
+			}
+		}
+	}
+}

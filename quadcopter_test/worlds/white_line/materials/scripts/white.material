@@ -1,0 +1,17 @@
+material vrc/white
+{
+	technique
+	{
+		pass
+		{
+
+
+			texture_unit
+			{
+				texture LineWhite.jpg
+
+
+			}
+		}
+	}
+}
